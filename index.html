@@ -1,0 +1,1798 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prontuário Eletrônico - Dr. Matheus Jorge Assali | Nefrologia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #f8fafc;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root {
+      --primary: #2563eb;
+      --secondary: #3b82f6;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --info: #0ea5e9;
+
+      --white: #ffffff;
+      --gray-50: #f9fafb;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-300: #cbd5e1;
+      --gray-400: #94a3b8;
+      --gray-500: #64748b;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1e293b;
+      --gray-900: #0f172a;
+
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+
+      --radius-md: 0.375rem;
+      --radius-lg: 0.5rem;
+      --radius-xl: 0.75rem;
+      --radius-2xl: 1rem;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: var(--white);
+      padding: var(--space-6) 0;
+      box-shadow: var(--shadow-lg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .header-logo {
+      width: 48px;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-xl);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .header-info h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 0.25rem;
+    }
+
+    .header-info p {
+      font-size: 0.875rem;
+      opacity: 0.9;
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .status-badge {
+      background: rgba(255, 255, 255, 0.1);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-lg);
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    /* Main Layout */
+    .app-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-content {
+      flex: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6);
+      width: 100%;
+    }
+
+    /* Navigation */
+    .nav-tabs {
+      display: flex;
+      background: var(--white);
+      border-radius: var(--radius-2xl);
+      padding: var(--space-2);
+      margin-bottom: var(--space-8);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      overflow-x: auto;
+    }
+
+    .nav-tab {
+      flex: 1;
+      min-width: 140px;
+      padding: var(--space-4) var(--space-6);
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-xl);
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      white-space: nowrap;
+    }
+
+    .nav-tab:hover {
+      background: var(--gray-100);
+      color: var(--primary);
+    }
+
+    .nav-tab.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: var(--white);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Sections */
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius-2xl);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      padding: var(--space-6);
+      border-bottom: 1px solid var(--gray-200);
+      background: linear-gradient(145deg, var(--white) 0%, var(--gray-50) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .card-title i {
+      color: var(--primary);
+    }
+
+    .card-body {
+      padding: var(--space-6);
+    }
+
+    /* Forms */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-6);
+    }
+
+    .form-group {
+      margin-bottom: var(--space-6);
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: var(--space-2);
+      font-size: 0.875rem;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: var(--space-4);
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius-lg);
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      background: var(--white);
+      color: var(--gray-900);
+      font-weight: 500;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-control.large {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-6);
+      border: none;
+      border-radius: var(--radius-lg);
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: var(--white);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn.primary:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .btn.secondary {
+      background: var(--white);
+      color: var(--primary);
+      border: 1px solid var(--gray-300);
+    }
+
+    .btn.secondary:hover {
+      background: var(--gray-50);
+      border-color: var(--primary);
+    }
+
+    .btn.success {
+      background: var(--success);
+      color: var(--white);
+    }
+
+    .btn.warning {
+      background: var(--warning);
+      color: var(--white);
+    }
+
+    .btn.sm {
+      padding: var(--space-2) var(--space-4);
+      font-size: 0.75rem;
+    }
+
+    .btn.lg {
+      padding: var(--space-6) var(--space-8);
+      font-size: 1rem;
+    }
+
+    /* Medical Editor */
+    .medical-editor {
+      min-height: 400px;
+      padding: var(--space-6);
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius-lg);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      resize: vertical;
+      background: var(--white);
+      color: var(--gray-900);
+      transition: all 0.2s;
+    }
+
+    .medical-editor:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Patient List */
+    .patients-grid {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .patient-card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .patient-card:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+
+    .patient-card.selected {
+      border-color: var(--primary);
+      background: rgba(37, 99, 235, 0.02);
+      box-shadow: var(--shadow-md);
+    }
+
+    .patient-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    .patient-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 1.125rem;
+    }
+
+    .patient-info {
+      flex: 1;
+    }
+
+    .patient-name {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: var(--space-2);
+    }
+
+    .patient-meta {
+      display: flex;
+      gap: var(--space-4);
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      flex-wrap: wrap;
+    }
+
+    .patient-meta span {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .patient-actions {
+      display: flex;
+      gap: var(--space-2);
+      justify-content: flex-end;
+      margin-top: var(--space-4);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--gray-200);
+    }
+
+    /* Templates */
+    .template-buttons {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-4);
+      padding: var(--space-4);
+      background: rgba(37, 99, 235, 0.05);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(37, 99, 235, 0.1);
+    }
+
+    .template-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* Search */
+    .search-container {
+      position: relative;
+      margin-bottom: var(--space-6);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: var(--space-4) var(--space-4) var(--space-4) 3rem;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius-2xl);
+      font-size: 1rem;
+      background: var(--white);
+      color: var(--gray-900);
+      transition: all 0.2s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: var(--space-4);
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      font-size: 1.125rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-6);
+    }
+
+    .modal-overlay.show {
+      display: flex;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius-2xl);
+      box-shadow: var(--shadow-lg);
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: scale(0.95);
+      transition: transform 0.2s ease-out;
+    }
+
+    .modal-overlay.show .modal {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: var(--space-6);
+      border-bottom: 1px solid var(--gray-200);
+      background: linear-gradient(145deg, var(--white) 0%, var(--gray-50) 100%);
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .modal-body {
+      padding: var(--space-6);
+    }
+
+    .modal-footer {
+      padding: var(--space-4) var(--space-6) var(--space-6);
+      display: flex;
+      gap: var(--space-4);
+      justify-content: flex-end;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    /* Notifications */
+    .toast {
+      position: fixed;
+      top: var(--space-8);
+      right: var(--space-8);
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--gray-200);
+      padding: var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      z-index: 2000;
+      max-width: 400px;
+      transform: translateX(120%);
+      transition: all 0.3s;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: var(--white);
+    }
+
+    .toast.success .toast-icon {
+      background: var(--success);
+    }
+
+    .toast.error .toast-icon {
+      background: var(--danger);
+    }
+
+    .toast.warning .toast-icon {
+      background: var(--warning);
+    }
+
+    .toast.info .toast-icon {
+      background: var(--info);
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      font-size: 0.875rem;
+    }
+
+    .toast-message {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      line-height: 1.4;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8);
+      color: var(--gray-500);
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: var(--space-4);
+      color: var(--gray-300);
+    }
+
+    .empty-state h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+      color: var(--gray-900);
+    }
+
+    .empty-state p {
+      font-size: 0.875rem;
+      margin-bottom: var(--space-6);
+      line-height: 1.6;
+    }
+
+    /* Medical Records List */
+    .records-list {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .record-item {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .record-item:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .record-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-2);
+    }
+
+    .record-title {
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .record-date {
+      font-size: 0.875rem;
+      color: var(--gray-500);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .record-preview {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      line-height: 1.5;
+      max-height: 3em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Dashboard */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--space-6);
+      margin-bottom: var(--space-8);
+    }
+
+    .metric-card {
+      background: var(--white);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    }
+
+    .metric-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .metric-data {
+      flex: 1;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: var(--space-2);
+      line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .metric-label {
+      font-size: 0.875rem;
+      color: var(--gray-600);
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+    }
+
+    .metric-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: var(--white);
+      background: var(--primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        gap: var(--space-4);
+        text-align: center;
+      }
+
+      .nav-tabs {
+        flex-direction: column;
+        gap: var(--space-2);
+      }
+
+      .nav-tab {
+        justify-content: flex-start;
+        min-width: auto;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .patient-header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .modal {
+        margin: var(--space-4);
+        max-width: none;
+      }
+    }
+
+    /* Print */
+    @media print {
+      .header,
+      .nav-tabs,
+      .modal-overlay,
+      .toast {
+        display: none !important;
+      }
+
+      .main-content {
+        padding: 0;
+        max-width: none;
+      }
+
+      .card {
+        box-shadow: none;
+        border: 1px solid #e6edf3;
+      }
+    }
+
+    /* Medical Calculation Tools */
+    .calc-tools {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+      padding: var(--space-4);
+      background: var(--gray-50);
+      border-radius: var(--radius-lg);
+    }
+
+    .calc-tool {
+      text-align: center;
+    }
+
+    .calc-result {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: var(--space-2);
+    }
+
+    /* Adicionar botões de template específicos de Nefrologia */
+    .template-buttons {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-4);
+      padding: var(--space-4);
+      background: rgba(37, 99, 235, 0.05);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(37, 99, 235, 0.1);
+    }
+
+    .template-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+  </style>
+
+  <!-- Auto-complete para termos médicos -->
+  <datalist id="medical-terms">
+    <option value="Doença Renal Crônica">
+    <option value="Hipertensão Arterial Sistêmica">
+    <option value="Diabetes Mellitus">
+    <option value="Hemodiálise">
+    <option value="Diálise Peritoneal">
+    <option value="Insuficiência Renal Aguda">
+    <option value="Insuficiência Renal Crônica">
+    <option value="Glomerulonefrite">
+    <option value="Pielonefrite">
+    <option value="Nefropatia Diabética">
+    <option value="Nefropatia Hipertensiva">
+    <option value="Doença Renal Policística">
+    <option value="Síndrome Nefrótica">
+    <option value="Acidose Metabólica">
+    <option value="Hipercalemia">
+    <option value="Hiperfosfatemia">
+    <option value="Anemia">
+    <option value="Osteodistrofia Renal">
+  </datalist>
+
+  <style media="print">
+    /* Melhor formato de impressão (corrigido, sem tags duplicadas) */
+    .print-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .print-header img {
+      max-width: 200px;
+    }
+
+    .print-patient-info {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+
+    .print-content {
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+
+    @page {
+      margin: 2cm;
+    }
+
+    /* esconder elementos que não devem imprimir */
+    .header,
+    .nav-tabs,
+    .modal-overlay,
+    .toast {
+      display: none !important;
+    }
+
+    .main-content {
+      padding: 0;
+      max-width: none;
+    }
+
+    .card {
+      box-shadow: none;
+      border: 1px solid #e6edf3;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-container">
+      <div class="header-brand">
+        <div class="header-logo">
+          <i class="fas fa-user-md"></i>
+        </div>
+        <div class="header-info">
+          <h1>Prontuário Eletrônico</h1>
+          <p>Dr. Matheus Jorge Assali • Especialista em Nefrologia</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <!-- Corrigir ícone do status -->
+        <div class="status-badge">
+          <i class="fas fa-check-circle"></i>
+          <span>Sistema Ativo</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <main class="main-content">
+      <!-- Navigation -->
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-section="dashboard">
+          <i class="fas fa-chart-line"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-tab" data-section="patients">
+          <i class="fas fa-users"></i>
+          <span>Pacientes</span>
+        </button>
+        <button class="nav-tab" data-section="records">
+          <i class="fas fa-file-medical"></i>
+          <span>Prontuários</span>
+        </button>
+        <button class="nav-tab" data-section="history">
+          <i class="fas fa-history"></i>
+          <span>Histórico</span>
+        </button>
+        <button class="nav-tab" data-section="tools">
+          <i class="fas fa-calculator"></i>
+          <span>Calculadoras</span>
+        </button>
+      </nav>
+
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="section active">
+        <div class="dashboard-grid">
+          <div class="metric-card">
+            <div class="metric-content">
+              <div class="metric-data">
+                <div class="metric-value" id="totalPatients">0</div>
+                <div class="metric-label">Total de Pacientes</div>
+              </div>
+              <div class="metric-icon">
+                <i class="fas fa-users"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-content">
+              <div class="metric-data">
+                <div class="metric-value" id="totalRecords">0</div>
+                <div class="metric-label">Prontuários</div>
+              </div>
+              <div class="metric-icon">
+                <i class="fas fa-file-medical"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-content">
+              <div class="metric-data">
+                <div class="metric-value" id="thisMonth">0</div>
+                <div class="metric-label">Este Mês</div>
+              </div>
+              <div class="metric-icon">
+                <i class="fas fa-calendar"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-content">
+              <div class="metric-data">
+                <div class="metric-value" id="activePatients">0</div>
+                <div class="metric-label">Pacientes Ativos</div>
+              </div>
+              <div class="metric-icon">
+                <i class="fas fa-heartbeat"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="fas fa-bolt"></i>
+              Ações Rápidas
+            </h2>
+          </div>
+          <div class="card-body">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+              <button class="btn primary" onclick="medicalSystem.showAddPatientModal()">
+                <i class="fas fa-user-plus"></i>
+                Novo Paciente
+              </button>
+              <button class="btn secondary" onclick="medicalSystem.showNewRecordModal()">
+                <i class="fas fa-file-medical"></i>
+                Nova Consulta
+              </button>
+              <button class="btn success" onclick="medicalSystem.exportData()">
+                <i class="fas fa-download"></i>
+                Exportar Dados
+              </button>
+              <button class="btn warning" onclick="medicalSystem.importData()">
+                <i class="fas fa-upload"></i>
+                Importar Dados
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Patients Section -->
+      <section id="patients" class="section">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" class="search-input" id="patientSearch"
+            placeholder="Buscar pacientes por nome, CPF ou telefone...">
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="fas fa-users"></i>
+              Lista de Pacientes
+            </h2>
+            <button class="btn primary" onclick="medicalSystem.showAddPatientModal()">
+              <i class="fas fa-plus"></i>
+              Adicionar Paciente
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="patientsContainer">
+              <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Nenhum Paciente Cadastrado</h3>
+                <p>Comece adicionando seu primeiro paciente ao sistema.</p>
+                <button class="btn primary" onclick="medicalSystem.showAddPatientModal()">
+                  <i class="fas fa-plus"></i>
+                  Adicionar Primeiro Paciente
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Medical Records Section -->
+      <section id="records" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="fas fa-file-medical"></i>
+              Prontuário Eletrônico
+            </h2>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('anamnese')">
+                <i class="fas fa-clipboard-list"></i>
+                Anamnese
+              </button>
+              <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('nefrologia')">
+                <i class="fas fa-kidneys"></i>
+                Nefrologia
+              </button>
+              <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('evolucao')">
+                <i class="fas fa-notes-medical"></i>
+                Evolução
+              </button>
+              <!-- Adicionar botões de template específicos de Nefrologia -->
+              <div class="template-buttons">
+                <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('primeira_consulta_nefro')">
+                  <i class="fas fa-user-md"></i>
+                  1ª Consulta Nefro
+                </button>
+                <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('retorno_nefro')">
+                  <i class="fas fa-clock"></i>
+                  Retorno Nefro
+                </button>
+                <button class="btn secondary sm" onclick="medicalSystem.loadTemplate('hemodialise')">
+                  <i class="fas fa-tint"></i>
+                  Sessão HD
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Patient Selection -->
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="recordPatientSelect">Selecionar Paciente</label>
+                <select class="form-control" id="recordPatientSelect">
+                  <option value="">Selecione um paciente</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="recordType">Tipo de Consulta</label>
+                <select class="form-control" id="recordType">
+                  <option value="primeira_consulta">Primeira Consulta</option>
+                  <option value="retorno">Consulta de Retorno</option>
+                  <option value="emergencia">Emergência</option>
+                  <option value="hemodialise">Sessão de Hemodiálise</option>
+                  <option value="transplante">Avaliação para Transplante</option>
+                  <option value="procedimento">Procedimento</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="recordDate">Data e Hora</label>
+                <input type="datetime-local" class="form-control" id="recordDate">
+              </div>
+            </div>
+
+            <!-- Medical Templates -->
+            <div class="template-buttons">
+              <div class="template-info">
+                <i class="fas fa-clipboard-check"></i>
+                <span>Templates Médicos Disponíveis:</span>
+              </div>
+              <button type="button" class="btn secondary sm" onclick="medicalSystem.insertTemplate('queixa_principal')">
+                <i class="fas fa-comment-medical"></i>
+                Queixa Principal
+              </button>
+              <button type="button" class="btn secondary sm" onclick="medicalSystem.insertTemplate('historia_doenca')">
+                <i class="fas fa-history"></i>
+                História da Doença
+              </button>
+              <button type="button" class="btn secondary sm" onclick="medicalSystem.insertTemplate('exame_fisico')">
+                <i class="fas fa-stethoscope"></i>
+                Exame Físico
+              </button>
+              <button type="button" class="btn secondary sm" onclick="medicalSystem.insertTemplate('diagnostico')">
+                <i class="fas fa-diagnoses"></i>
+                Diagnóstico
+              </button>
+              <button type="button" class="btn secondary sm"
+                onclick="medicalSystem.insertTemplate('plano_terapeutico')">
+                <i class="fas fa-pills"></i>
+                Plano Terapêutico
+              </button>
+              <button type="button" class="btn secondary sm" onclick="medicalSystem.insertTemplate('orientacoes')">
+                <i class="fas fa-info-circle"></i>
+                Orientações
+              </button>
+            </div>
+
+            <!-- Medical Editor -->
+            <div class="form-group">
+              <label class="form-label" for="recordContent">Evolução Médica</label>
+              <textarea class="medical-editor" id="recordContent"
+                placeholder="Digite a evolução médica do paciente... Use os templates acima para agilizar o preenchimento."></textarea>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 1rem; justify-content: flex-end; flex-wrap: wrap;">
+              <button type="button" class="btn secondary" onclick="medicalSystem.clearRecord()">
+                <i class="fas fa-eraser"></i>
+                Limpar
+              </button>
+              <button type="button" class="btn secondary" onclick="medicalSystem.saveDraft()">
+                <i class="fas fa-save"></i>
+                Salvar Rascunho
+              </button>
+              <button type="button" class="btn warning" onclick="medicalSystem.printRecord()">
+                <i class="fas fa-print"></i>
+                Imprimir
+              </button>
+              <button type="button" class="btn success" onclick="medicalSystem.saveRecord()">
+                <i class="fas fa-check"></i>
+                Finalizar Prontuário
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Medical History Section -->
+      <section id="history" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="fas fa-history"></i>
+              Histórico de Consultas
+            </h2>
+            <div style="display: flex; gap: 0.5rem;">
+              <select class="form-control" id="historyPatientFilter" style="width: 200px;">
+                <option value="">Todos os pacientes</option>
+              </select>
+              <button class="btn secondary" onclick="medicalSystem.refreshHistory()">
+                <i class="fas fa-sync-alt"></i>
+                Atualizar
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="historyContainer">
+              <div class="empty-state">
+                <i class="fas fa-file-medical"></i>
+                <h3>Nenhum Prontuário Encontrado</h3>
+                <p>Os prontuários salvos aparecerão aqui.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Medical Calculators Section -->
+      <section id="tools" class="section">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <i class="fas fa-calculator"></i>
+              Calculadoras Médicas - Nefrologia
+            </h2>
+          </div>
+          <div class="card-body">
+            <!-- Clearance de Creatinina -->
+            <div class="calc-tools">
+              <div class="calc-tool">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">Clearance de Creatinina</h4>
+                <div class="form-group">
+                  <label class="form-label">Idade (anos)</label>
+                  <input type="number" class="form-control" id="clcr_age" min="0" max="120"
+                    oninput="medicalSystem.calculateClearance()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Peso (kg)</label>
+                  <input type="number" class="form-control" id="clcr_weight" min="0" max="300" step="0.1"
+                    oninput="medicalSystem.calculateClearance()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Creatinina (mg/dL)</label>
+                  <input type="number" class="form-control" id="clcr_creatinine" min="0" max="20" step="0.1"
+                    oninput="medicalSystem.calculateClearance()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Sexo</label>
+                  <select class="form-control" id="clcr_gender" onchange="medicalSystem.calculateClearance()">
+                    <option value="">Selecione</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                  </select>
+                </div>
+                <div class="calc-result" id="clearanceResult">-- mL/min</div>
+              </div>
+
+              <div class="calc-tool">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">Ajuste de Dose</h4>
+                <div class="form-group">
+                  <label class="form-label">Dose Normal (mg)</label>
+                  <input type="number" class="form-control" id="dose_normal" min="0" step="0.1"
+                    oninput="medicalSystem.calculateDoseAdjustment()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">ClCr do Paciente</label>
+                  <input type="number" class="form-control" id="dose_clcr" min="0" step="0.1"
+                    oninput="medicalSystem.calculateDoseAdjustment()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">ClCr Normal (120)</label>
+                  <input type="number" class="form-control" id="dose_normal_clcr" value="120" readonly>
+                </div>
+                <div class="calc-result" id="doseResult">-- mg</div>
+              </div>
+
+              <div class="calc-tool">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">Taxa de Filtração</h4>
+                <div class="form-group">
+                  <label class="form-label">Creatinina (mg/dL)</label>
+                  <input type="number" class="form-control" id="gfr_creatinine" min="0" step="0.1"
+                    oninput="medicalSystem.calculateGFR()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Idade (anos)</label>
+                  <input type="number" class="form-control" id="gfr_age" min="0" max="120"
+                    oninput="medicalSystem.calculateGFR()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Sexo</label>
+                  <select class="form-control" id="gfr_gender" onchange="medicalSystem.calculateGFR()">
+                    <option value="">Selecione</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                  </select>
+                </div>
+                <div class="calc-result" id="gfrResult">-- mL/min/1.73m²</div>
+              </div>
+
+              <div class="calc-tool">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">IMC</h4>
+                <div class="form-group">
+                  <label class="form-label">Peso (kg)</label>
+                  <input type="number" class="form-control" id="bmi_weight" min="0" step="0.1"
+                    oninput="medicalSystem.calculateBMI()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Altura (cm)</label>
+                  <input type="number" class="form-control" id="bmi_height" min="0" step="0.1"
+                    oninput="medicalSystem.calculateBMI()">
+                </div>
+                <div class="calc-result" id="bmiResult">-- kg/m²</div>
+                <div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--gray-600);" id="bmiCategory"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Patient Modal -->
+  <div class="modal-overlay" id="patientModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Cadastro de Paciente</h3>
+      </div>
+      <div class="modal-body">
+        <form id="patientForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="patientName">Nome Completo *</label>
+              <input type="text" class="form-control" id="patientName" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientAge">Idade</label>
+              <input type="number" class="form-control" id="patientAge" min="0" max="120">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientGender">Sexo</label>
+              <select class="form-control" id="patientGender">
+                <option value="">Selecione</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientPhone">Telefone</label>
+              <input type="tel" class="form-control" id="patientPhone" placeholder="(11) 99999-9999">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientEmail">E-mail</label>
+              <input type="email" class="form-control" id="patientEmail">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientCPF">CPF</label>
+              <input type="text" class="form-control" id="patientCPF" placeholder="000.000.000-00">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="patientAddress">Endereço Completo</label>
+            <input type="text" class="form-control" id="patientAddress">
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="patientWeight">Peso (kg)</label>
+              <input type="number" class="form-control" id="patientWeight" step="0.1" min="0" max="300">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientHeight">Altura (cm)</label>
+              <input type="number" class="form-control" id="patientHeight" min="50" max="250">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="patientBloodType">Tipo Sanguíneo</label>
+              <select class="form-control" id="patientBloodType">
+                <option value="">Selecione</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="patientAllergies">Alergias Medicamentosas</label>
+            <textarea class="form-control" id="patientAllergies" rows="3"
+              placeholder="Ex: Penicilina, AAS, etc."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="patientComorbidities">Comorbidades</label>
+            <textarea class="form-control" id="patientComorbidities" rows="3"
+              placeholder="Ex: Diabetes, Hipertensão, IRC, etc."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="patientMedications">Medicações em Uso</label>
+            <textarea class="form-control" id="patientMedications" rows="3"
+              placeholder="Ex: Losartana 50mg 1x/dia, Metformina 850mg 2x/dia"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="patientNotes">Observações</label>
+            <textarea class="form-control" id="patientNotes" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secondary" onclick="medicalSystem.closePatientModal()">
+          <i class="fas fa-times"></i>
+          Cancelar
+        </button>
+        <button type="button" class="btn success" onclick="medicalSystem.savePatient()">
+          <i class="fas fa-save"></i>
+          Salvar Paciente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // filepath: c:\Users\Matheus Assali\OneDrive\Minhas fontes de dados\prontuario digital\index.html (script section)
+    (function () {
+      'use strict';
+
+      // Autenticação simples por senha local (substitua por método seguro em produção)
+      if (!localStorage.getItem('auth')) {
+        const password = prompt('Digite a senha de acesso:');
+        if (password !== 'sua-senha-segura') {
+          alert('Senha incorreta');
+          window.location.href = 'about:blank';
+          return;
+        } else {
+          localStorage.setItem('auth', '1');
+        }
+      }
+
+      // Utilitários de storage
+      function loadFromStorage(key) {
+        try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+      }
+      function saveToStorage(key, data) {
+        localStorage.setItem(key, JSON.stringify(data || []));
+      }
+      function generateId() {
+        return 'id-' + Math.random().toString(36).slice(2, 9);
+      }
+
+      // Notificações simples
+      function showNotification(msg, type='info') {
+        console.log(`[${type}] ${msg}`);
+        // opcional: implementar toast UI
+      }
+
+      // Validação CPF (mantida)
+      function validateCPF(cpf) {
+        if (!cpf) return false;
+        cpf = cpf.replace(/[^\d]+/g, '');
+        if (cpf.length !== 11) return false;
+        if (/^(\d)\1+$/.test(cpf)) return false;
+        let sum = 0, rest;
+        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i-1, i)) * (11 - i);
+        rest = (sum * 10) % 11; if (rest === 10 || rest === 11) rest = 0;
+        if (rest !== parseInt(cpf.substring(9,10))) return false;
+        sum = 0;
+        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i-1, i)) * (12 - i);
+        rest = (sum * 10) % 11; if (rest === 10 || rest === 11) rest = 0;
+        if (rest !== parseInt(cpf.substring(10,11))) return false;
+        return true;
+      }
+
+      // Classe minimalista para manter funcionalidades
+      class MedicalSystem {
+        constructor() {
+          this.patients = loadFromStorage('patients') || [];
+          this.records = loadFromStorage('records') || [];
+          this.editingPatientId = null;
+          this.templates = {
+            anamnese: 'ANAMNESE\n\nQUEIXA PRINCIPAL:\n\nHISTÓRIA DA DOENÇA ATUAL:\n',
+            nefrologia: 'CONSULTA NEFROLÓGICA\n\nDADOS VITAIS:\n',
+            evolucao: 'EVOLUÇÃO MÉDICA\n\nSUBJETIVO:\n\nOBJETIVO:\n\nPLANO:\n'
+          };
+          this.init();
+        }
+
+        init() {
+          this.setupEventListeners();
+          this.loadPatients();
+          this.updatePatientSelects();
+          this.updateDashboard();
+          showNotification('Sistema inicializado', 'success');
+        }
+
+        setupEventListeners() {
+          // Nav tabs
+          document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+              document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+              document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+              tab.classList.add('active');
+              const section = document.getElementById(tab.dataset.section);
+              if (section) section.classList.add('active');
+            });
+          });
+
+          // Search
+          const searchInput = document.getElementById('patientSearch');
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.searchPatients(e.target.value));
+          }
+
+          // Modal close by overlay click
+          document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) modal.classList.remove('show');
+            });
+          });
+        }
+
+        updateDashboard() {
+          document.getElementById('totalPatients')?.textContent = String(this.patients.length || 0);
+          document.getElementById('totalRecords')?.textContent = String(this.records.length || 0);
+        }
+
+        loadPatients() {
+          const container = document.getElementById('patientsContainer');
+          if (!container) return;
+          if (this.patients.length === 0) {
+            container.innerHTML = `
+              <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Nenhum Paciente Cadastrado</h3>
+                <p>Comece adicionando seu primeiro paciente ao sistema.</p>
+                <button class="btn primary" onclick="medicalSystem.showAddPatientModal()">
+                  <i class="fas fa-plus"></i> Adicionar Primeiro Paciente
+                </button>
+              </div>`;
+            return;
+          }
+          container.innerHTML = '<div class="patients-grid">' + this.patients.map(p => this.generatePatientCard(p)).join('') + '</div>';
+        }
+
+        generatePatientCard(patient) {
+          const firstLetter = patient.name ? patient.name.charAt(0).toUpperCase() : 'P';
+          const age = patient.age ? `${patient.age} anos` : 'Idade não informada';
+          return `
+            <div class="patient-card" data-patient-id="${patient.id}">
+              <div class="patient-header">
+                <div class="patient-avatar">${firstLetter}</div>
+                <div class="patient-info">
+                  <div class="patient-name">${patient.name}</div>
+                  <div class="patient-meta">
+                    <span><i class="fas fa-calendar-alt"></i> ${age}</span>
+                    <span><i class="fas fa-phone"></i> ${patient.phone || 'Não informado'}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="patient-actions">
+                <button class="btn sm secondary" onclick="medicalSystem.viewPatient('${patient.id}')"><i class="fas fa-eye"></i> Ver</button>
+                <button class="btn sm primary" onclick="medicalSystem.createRecord('${patient.id}')"><i class="fas fa-file-medical"></i> Consulta</button>
+                <button class="btn sm secondary" onclick="medicalSystem.editPatient('${patient.id}')"><i class="fas fa-edit"></i> Editar</button>
+              </div>
+            </div>`;
+        }
+
+        updatePatientSelects() {
+          ['recordPatientSelect','historyPatientFilter'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const current = sel.value || '';
+            sel.innerHTML = (id==='historyPatientFilter' ? '<option value="">Todos os pacientes</option>' : '<option value="">Selecione um paciente</option>')
+              + this.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+            sel.value = current;
+          });
+        }
+
+        showAddPatientModal() {
+          document.getElementById('patientForm').reset();
+          document.getElementById('patientModal').classList.add('show');
+          setTimeout(()=>document.getElementById('patientName')?.focus(), 100);
+        }
+
+        closePatientModal() {
+          document.getElementById('patientModal').classList.remove('show');
+        }
+
+        extractPatientFormData() {
+          return {
+            name: document.getElementById('patientName')?.value?.trim() || '',
+            age: document.getElementById('patientAge')?.value || '',
+            gender: document.getElementById('patientGender')?.value || '',
+            phone: document.getElementById('patientPhone')?.value?.trim() || '',
+            email: document.getElementById('patientEmail')?.value?.trim() || '',
+            cpf: document.getElementById('patientCPF')?.value?.trim() || '',
+            address: document.getElementById('patientAddress')?.value?.trim() || '',
+            weight: document.getElementById('patientWeight')?.value || '',
+            height: document.getElementById('patientHeight')?.value || '',
+            bloodType: document.getElementById('patientBloodType')?.value || '',
+            allergies: document.getElementById('patientAllergies')?.value?.trim() || '',
+            comorbidities: document.getElementById('patientComorbidities')?.value?.trim() || '',
+            medications: document.getElementById('patientMedications')?.value?.trim() || '',
+            notes: document.getElementById('patientNotes')?.value?.trim() || ''
+          };
+        }
+
+        savePatient() {
+          const data = this.extractPatientFormData();
+          if (!data.name || data.name.length < 2) { showNotification('Nome obrigatório','error'); return; }
+          if (data.cpf && !validateCPF(data.cpf)) { showNotification('CPF inválido','error'); return; }
+
+          if (this.editingPatientId) {
+            const idx = this.patients.findIndex(p=>p.id===this.editingPatientId);
+            if (idx !== -1) { data.id = this.editingPatientId; data.updatedAt = new Date().toISOString(); this.patients[idx]=data; }
+            this.editingPatientId = null;
+          } else {
+            data.id = generateId(); data.createdAt = new Date().toISOString(); this.patients.push(data);
+          }
+
+          saveToStorage('patients', this.patients);
+          this.loadPatients();
+          this.updatePatientSelects();
+          this.updateDashboard();
+          this.closePatientModal();
+          showNotification('Paciente salvo','success');
+        }
+
+        editPatient(id) {
+          const p = this.patients.find(x=>x.id===id);
+          if (!p) return;
+          this.editingPatientId = id;
+          document.getElementById('patientName').value = p.name || '';
+          document.getElementById('patientAge').value = p.age || '';
+          document.getElementById('patientGender').value = p.gender || '';
+          document.getElementById('patientPhone').value = p.phone || '';
+          document.getElementById('patientEmail').value = p.email || '';
+          document.getElementById('patientCPF').value = p.cpf || '';
+          document.getElementById('patientAddress').value = p.address || '';
+          document.getElementById('patientWeight').value = p.weight || '';
+          document.getElementById('patientHeight').value = p.height || '';
+          document.getElementById('patientBloodType').value = p.bloodType || '';
+          document.getElementById('patientAllergies').value = p.allergies || '';
+          document.getElementById('patientComorbidities').value = p.comorbidities || '';
+          document.getElementById('patientMedications').value = p.medications || '';
+          document.getElementById('patientNotes').value = p.notes || '';
+          this.showAddPatientModal();
+        }
+
+        viewPatient(id) {
+          const p = this.patients.find(x=>x.id===id);
+          if (!p) return alert(`Paciente: ${p.name}\nCPF: ${p.cpf || '—'}`);
+        }
+
+        createRecord(patientId) {
+          document.querySelector('.nav-tab[data-section="records"]')?.click();
+          setTimeout(()=>{
+            document.getElementById('recordPatientSelect').value = patientId;
+            document.getElementById('recordContent')?.focus();
+          },100);
+        }
+
+        loadTemplate(name) {
+          const tpl = this.templates[name];
+          if (!tpl) return;
+          document.getElementById('recordContent').value = tpl;
+          showNotification('Template carregado','success');
+        }
+
+        insertTemplate(name) {
+          const tpl = this.templates[name] || '';
+          const editor = document.getElementById('recordContent');
+          if (!editor) return;
+          editor.value = (editor.value || '') + '\n' + tpl;
+        }
+
+        // cálculos simples (placeholders)
+        calculateClearance() { /* implementar conforme necessidade */ }
+        calculateDoseAdjustment() { /* implementar conforme necessidade */ }
+        calculateGFR() { /* implementar conforme necessidade */ }
+        calculateBMI() { /* implementar conforme necessidade */ }
+
+        // export/import simples
+        exportData() {
+          const data = { patients: this.patients, records: this.records };
+          const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'prontuario-data.json'; a.click();
+          URL.revokeObjectURL(url);
+        }
+        importData() {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'application/json';
+          input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              try {
+                const obj = JSON.parse(ev.target.result);
+                this.patients = obj.patients || this.patients;
+                this.records = obj.records || this.records;
+                saveToStorage('patients', this.patients);
+                saveToStorage('records', this.records);
+                this.loadPatients(); this.updatePatientSelects(); this.updateDashboard();
+                showNotification('Importação concluída','success');
+              } catch {
+                showNotification('Arquivo inválido','error');
+              }
+            };
+            reader.readAsText(file);
+          };
+          input.click();
+        }
+
+        // rascunho/print placeholders
+        saveDraft() { showNotification('Rascunho salvo (local)', 'info'); }
+        saveRecord() { showNotification('Prontuário finalizado', 'success'); }
+        clearRecord() { document.getElementById('recordContent').value = ''; }
+        printRecord() { window.print(); }
+      }
+
+      // criar instância global para uso pelas chamadas inline do HTML
+      window.medicalSystem = new MedicalSystem();
+    })();
+  </script>
+</body>
+
+</html>
+
