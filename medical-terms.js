@@ -6,20 +6,20 @@ const MEDICAL_TERMS = {
     "Transplante Renal",
     "Glomerulonefrite",
     "Nefropatia Diabética",
-    "Nefroesclerose Hipertensiva"
+    "Nefroesclerose Hipertensiva",
   ],
   medications: [
     "Eritropoetina",
     "Calcitriol",
     "Sevelamer",
     "Cinacalcete",
-    "Paricalcitol"
+    "Paricalcitol",
   ],
   symptoms: [
     "Edema",
     "Hipertensão",
     "Anemia",
     "Acidose Metabólica",
-    "Hiperfosfatemia"
-  ]
+    "Hiperfosfatemia",
+  ],
 };

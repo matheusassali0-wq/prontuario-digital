@@ -1,65 +1,54 @@
-# NSA‑Secure Medical System — MVP (Browser‑Only, Web Crypto, IndexedDB)
+# NSA‑Secure Medical System — v3.1 (Irretocável)
 
-**Importante (verdade técnica):** “NSA‑256” **não é** um algoritmo padronizado. Este MVP utiliza **AES‑256‑GCM** (criptografia autenticada), **SHA‑256** (hash) e **ECDSA P‑256** (assinatura), todos via **Web Crypto API** do navegador. A “XOR com rotação” é implementada **apenas** como ofuscação complementar e **não** deve proteger dados sensíveis.
+**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.
 
-## Recursos implementados (versão MVP)
-- **NSACryptographicEngine**
-  - Geração segura de chaves, `crypto.getRandomValues`
-  - AES‑256‑GCM (encrypt/decrypt)
-  - PBKDF2 (250.000 iterações) para derivar chave de wrapping por **passphrase**
-  - SHA‑256 (hex/base64)
-  - Assinatura **ECDSA P‑256 / SHA‑256**
-  - IDs criptograficamente fortes com timestamp
-  - XOR com rotação (ofuscação)
+## Rodar com HTTPS local (mkcert)
+```bash
+# 1) Gere certificados locais:
+#    https://github.com/FiloSottile/mkcert
+mkcert -install
+mkdir certs
+mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost 127.0.0.1 ::1
 
-- **SecureMap (IndexedDB)**
-  - Valores **sempre criptografados** com AES‑GCM
-  - Chaves do mapa **hasheadas (sal + SHA‑256)** para não vazar metadados
-  - Persistência no `IndexedDB`
-  - Funções utilitárias de zeroização
+# 2) Instale deps para Argon2 (opcional, cliente) e rode o servidor
+npm install
+npm run setup-argon2   # copia argon2.wasm/js para public/argon2 (opcional, ativa KDF Argon2id)
+npm start              # HTTPS em https://localhost:5173
+```
 
-- **MedicalBlockchain (Proof‑of‑Work)**
-  - Gênese, mempool, mineração por dificuldade (prefixo zero)
-  - Validação de cadeia
-  - Armazenamento dos blocos (IndexedDB)
-  - Transações médicas (payloads) **hasheadas**
+> Sem certificados, o servidor cai para **HTTP** (apenas dev). Para **WASM/COI** completo, use HTTPS + COOP/COEP (já aplicados).
 
-- **MedicalAIEngine (explainable, nefro)**
-  - **RiskAssessmentModel**: escore 1‑10 com base em idade, comorbidades (DM/HA/DRC/egfr/K/PA)
-  - **DiagnosticSupport**: regras simples – AKI/DRC/hipercalemia/hipervolemia (educacional)
-  - **RecordAnalysis**: sentimento (rudimentar), keywords e complexidade
-  - *Sem promessas de acurácia; uso clínico real exige validação e diretrizes.*
+## Scripts npm
+- `npm start` → server HTTPS/HTTP com headers estritos (CSP, COOP/COEP, etc.).
+- `npm run setup-argon2` → copia `argon2-browser` (wasm/js) para `public/argon2/`.
+- `npm run sign-integrity` → gera/assina `public/integrity.json.sig` com chave externa (veja `scripts/sign-integrity.js`).
 
-- **SecurityMonitor & Auditoria**
-  - Log criptografado + **encadeamento por hash** (rastreabilidade)
-  - “Threat score” heurístico e medição de “event loop lag”
-  - Export de logs (JSON) e verificação de integridade
+## Vault Zero‑Knowledge (backup/sync E2EE)
+- Registro: `POST /api/register` `{ clientId, apiKey }` → servidor guarda **hash PBKDF2** da apiKey (servidor nunca vê dados em claro).
+- PUT: `POST /vault/put` `{ clientId, docId, blobB64, meta }` com `Authorization: Bearer <apiKey>`.
+- GET: `GET /vault/get?clientId=...&docId=...` com `Authorization: Bearer <apiKey>`.
+- **Os blobs são JSONs do IndexedDB criptografado (E2EE).**
 
-- **UI/UX**
-  - Paleta azul/cinza, Inter + JetBrains Mono (fallbacks do sistema)
-  - Abas: Dashboard, Pacientes, Prontuário, Blockchain, Segurança, Logs
-  - Atalhos: `Ctrl+K` busca, `Ctrl+Shift+N` novo paciente, `Ctrl+S` salvar, `Esc` fecha modal
-  - Mobile‑first, acessível (ARIA), toasts, loaders, empty states
+## Argon2id (WASM) no cliente
+- Este pacote inclui o **gancho** para Argon2id. Para ativar:
+  1. `npm install argon2-browser`
+  2. `npm run setup-argon2` (copia `argon2.js` e `argon2.wasm` para `public/argon2/`)
+  3. Descomente a linha `<script src="argon2/argon2.js" ...>` no `index.html`
+- Sem o wasm, o KDF cai em **PBKDF2/300k** como fallback.
 
-## Como executar
-> A Web Crypto (`crypto.subtle`) geralmente requer **origem segura** (https ou `http://localhost`).
+## MFA (TOTP)
+- Ative no Dashboard → gera `secret` Base32 e `otpauth://` (use Google Authenticator, 1Password, Authy).
+- Na abertura da sessão, será exigido o TOTP (6 dígitos).
 
-1. Baixe o zip e extraia.
-2. Rode um servidor local (qualquer um):
-   - Python: `python -m http.server 5173`
-   - Node: `npx serve` (ou `npx http-server`)
-3. Acesse `http://localhost:5173` (ou a porta que usar).
+## Assinatura de integridade externa
+- Rode `node scripts/sign-integrity.js` para assinar `public/integrity.json` com um **par de chaves externo** (TOFU ⇒ assinatura real fora do cliente).
+- Verificação da assinatura pode ser feita em gateway/reverso ou numa rotina administrativa.
 
-## Fluxo de chaves (recomendado no MVP)
-- **Passphrase** → PBKDF2 (250k) → **KeyWrap** (AES‑GCM) → protege a **MasterKey AES‑256**
-- MasterKey só fica em memória (session) enquanto a sessão estiver ativa.
-- Par de chaves **ECDSA P‑256** também pode ser wrapped pela mesma passphrase.
+## COOP/COEP e crossOriginIsolated
+- O servidor aplica **COOP: same-origin** e **COEP: require-corp** por header. Servindo todos os assets **mesma origem**, você obtém `crossOriginIsolated = true` para WASM/crypto mais forte.
 
-## Limites e próximos passos (produção)
-- Adotar **KDF moderno** (Argon2id) em backend/HSM; reforçar política de senhas, MFA e **rotacionar chaves**.
-- Expandir **busca sobre criptografado** com índices invertidos hasheados + salts por doc (hoje é MVP).
-- **LGPD/HIPAA**: mapeamento de dados pessoais/sensíveis, base legal, registro de operações, DPIA e política de retenção.
-- Integração com **HSM**/KMS (ex.: Cloud KMS) e logs imutáveis assinados fora do cliente.
-- A IA aqui é **explicável/rudimentar**; para uso clínico real: validação em dataset, versionamento, monitoramento de drift, e governança clínica.
+## Observação honesta
+- “NSA‑256” **não é** um padrão. Você está com **AES‑256‑GCM**, **SHA‑256**, **ECDSA P‑256**, **HMAC‑SHA‑256**, **Argon2id (WASM)** — prática robusta.
+- XOR de rotação é apenas ofuscação (não usado em trilhas críticas).
 
 MIT License.

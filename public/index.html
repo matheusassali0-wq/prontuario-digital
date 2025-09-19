@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>`r`n    <meta name="csrf-token" content="">`r`n    <meta name="active-patient-id" content="">`r`n    <meta name="crm-number" content="CRM_SP_210257">`r`n    <meta name="doctor-id" content="DR_MATHEUS_ASSALI">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>NSA‑Secure — v3.1 Irretocável</title>
+    <!-- Essas metas são redundantes ao servidor (server aplica headers); ajudam em dev -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    />
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin" />
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="print.css" media="print" />
+  </head>
+  <body>
+    <header class="app-header">`r`n    <meta name="csrf-token" content="">`r`n    <meta name="active-patient-id" content="">`r`n    <meta name="crm-number" content="CRM_SP_210257">`r`n    <meta name="doctor-id" content="DR_MATHEUS_ASSALI">
+      <div class="brand">
+        <div class="badge">NSA‑Secure</div>
+        <h1 class="title">Sistema Médico — v3.1 (Irretocável)</h1>
+        <span class="pill">AES‑256‑GCM</span>
+        <span class="pill">ECDSA P‑256</span>
+        <span class="pill">Argon2id (WASM)</span>
+        <span class="pill">HMAC n‑gram</span>
+      </div>
+      <nav class="top-actions" aria-label="Ações principais">
+        <button id="btnGenKeys" class="primary">Gerar Chaves</button>
+        <button id="btnUnlock" class="secondary">Desbloquear</button>
+        <button id="btnLock" class="ghost">Bloquear</button>
+      </nav>
+    </header>
+    <main>
+      <aside class="sidebar">
+        <button class="tablink active" data-tab="dashboard">Dashboard</button>
+        <button class="tablink" data-tab="pacientes">Pacientes</button>
+        <button class="tablink" data-tab="prontuario">Prontuário</button>
+        <button class="tablink" data-tab="blockchain">Blockchain</button>
+        <button class="tablink" data-tab="seguranca">Segurança</button>
+        <button class="tablink" data-tab="sync">Sync (Vault)</button>
+        <button class="tablink" data-tab="logs">Logs</button>
+      </aside>
+      <section class="content">
+        <section id="tab-dashboard" class="tab active">
+          <h2>Dashboard</h2>
+          <div class="cards">
+            <div class="card">
+              <div class="card-title">Estado</div>
+              <div class="kv">
+                <div>HTTPS?</div>
+                <div id="isHttps">—</div>
+                <div>crossOriginIsolated?</div>
+                <div id="isCOI">—</div>
+                <div>Chaves no navegador?</div>
+                <div id="hasKeys">—</div>
+                <div>Dificuldade PoW</div>
+                <div><span id="bcDifficulty">3</span></div>
+                <div>Blocos</div>
+                <div id="bcBlocks">0</div>
+                <div>Mempool</div>
+                <div id="bcMempool">0</div>
+                <div>Ameaças</div>
+                <div id="threatLevel">—</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">MFA (TOTP)</div>
+              <div class="actions">
+                <button id="btnMfaEnable" class="secondary">Ativar MFA</button>
+                <button id="btnMfaDisable" class="ghost">Desativar MFA</button>
+              </div>
+              <small
+                >Gera um segredo TOTP e URL otpauth para seu app
+                autenticador.</small
+              >
+            </div>
+            <div class="card">
+              <div class="card-title">Blockchain</div>
+              <div class="actions">
+                <button id="btnMine" class="primary">Minerar Bloco</button>
+                <input
+                  id="inpDiff"
+                  type="number"
+                  min="1"
+                  max="6"
+                  value="3"
+                  style="width: 80px"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-pacientes" class="tab">
+          <h2>Pacientes</h2>
+          <div class="grid">
+            <form id="frmPaciente" class="form" autocomplete="off">
+              <div class="form-row">
+                <label>Nome</label><input id="p_nome" required />
+              </div>
+              <div class="form-row">
+                <label>Idade</label
+                ><input id="p_idade" type="number" min="0" max="120" required />
+              </div>
+              <div class="form-row">
+                <label>Sexo</label
+                ><select id="p_sexo">
+                  <option>M</option>
+                  <option>F</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Altura (cm)</label><input id="p_altura" type="number" />
+              </div>
+              <div class="form-row">
+                <label>Peso (kg)</label><input id="p_peso" type="number" />
+              </div>
+              <fieldset class="form-row">
+                <legend>Comorbidades</legend>
+                <label><input type="checkbox" id="p_dm" /> DM</label
+                ><label><input type="checkbox" id="p_ha" /> HA</label
+                ><label><input type="checkbox" id="p_drc" /> DRC</label>
+              </fieldset>
+              <div class="form-row">
+                <label>eGFR</label><input id="p_egfr" type="number" />
+              </div>
+              <div class="form-row">
+                <label>K</label><input id="p_k" type="number" step="0.1" />
+              </div>
+              <div class="form-row">
+                <label>PAS</label><input id="p_pas" type="number" />
+              </div>
+              <div class="form-row">
+                <label>Consentimento</label
+                ><select id="p_consent">
+                  <option>sem</option>
+                  <option>consentido</option>
+                  <option>revogado</option>
+                </select>
+              </div>
+              <div class="actions">
+                <button class="primary" type="submit">Salvar</button
+                ><button id="btnNovoPaciente" type="button">Novo</button>
+              </div>
+            </form>
+            <div>
+              <div class="search">
+                <input id="pacSearch" placeholder="Buscar..." />
+                <select id="searchMode">
+                  <option value="word">Palavra</option>
+                  <option value="ngram">Substring (n‑gram)</option>
+                </select>
+              </div>
+              <ul id="pacList" class="list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-prontuario" class="tab">
+          <h2>Prontuário</h2>
+          <div class="form">
+            <div class="form-row">
+              <label>ID do Paciente</label><input id="ehr_pid" />
+            </div>
+            <div class="form-row">
+              <label>Template</label
+              ><select id="ehr_template">
+                <option value="evol-nefro">Evolução Nefro</option>
+                <option value="prescricao">Prescrição</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Editor</label
+              ><textarea id="ehr_editor" rows="10"></textarea>
+            </div>
+            <div class="actions">
+              <button id="btnEhrApplyTemplate" class="ghost">Aplicar</button
+              ><button id="btnEhrSave" class="primary">Salvar</button
+              ><button id="btnEhrSign" class="secondary">Assinar</button
+              ><button id="btnEhrVerify" class="ghost">Verificar</button
+              ><button id="btnEhrExport" class="ghost">Exportar</button>
+            </div>
+            <div id="ehrSignInfo" class="muted"></div>
+          </div>
+        </section>
+
+        <section id="tab-blockchain" class="tab">
+          <h2>Blockchain</h2>
+          <div class="actions">
+            <button
+              id="btnBcAddTx"
+              class="secondary"
+              onclick="document.getElementById('modalTx').showModal()"
+            >
+              Nova Transação
+            </button>
+            <button id="btnMine2" class="primary">Minerar</button>
+            <label
+              >Dificuldade
+              <input
+                id="inpDiff2"
+                type="number"
+                min="1"
+                max="6"
+                value="3"
+                style="width: 80px"
+                onchange="document.getElementById('inpDiff').value=this.value;document.getElementById('inpDiff').dispatchEvent(new Event('change'))"
+            /></label>
+          </div>
+          <ul id="bcList" class="list"></ul>
+        </section>
+
+        <section id="tab-seguranca" class="tab">
+          <h2>Segurança</h2>
+          <div class="actions">
+            <button id="btnScan" class="primary">Scan</button>
+            <button id="btnSelfCheck" class="secondary">Self‑Check</button>
+            <button id="btnVerifyLogs" class="ghost">Verificar Logs</button>
+            <button id="btnExportLogs" class="ghost">Exportar Logs</button>
+          </div>
+          <pre id="scanOutput" class="mono"></pre>
+        </section>
+
+        <section id="tab-sync" class="tab">
+          <h2>Sync (Backup E2EE — Vault)</h2>
+          <div class="form">
+            <div class="form-row">
+              <label>URL do servidor</label
+              ><input id="vaultUrl" placeholder="https://localhost:5173" />
+            </div>
+            <div class="form-row">
+              <label>Client ID</label><input id="vaultClient" />
+            </div>
+            <div class="form-row">
+              <label>Sync Key (seu segredo)</label
+              ><input id="vaultKey" type="password" />
+            </div>
+            <div class="form-row">
+              <label>Doc ID (para GET)</label
+              ><input id="vaultDoc" placeholder="snapshot_..." />
+            </div>
+            <div class="actions">
+              <button id="btnRegister" class="ghost">Registrar</button
+              ><button id="btnVaultSave" class="primary">Enviar Backup</button
+              ><button id="btnVaultLoad" class="secondary">Restaurar</button>
+            </div>
+            <small
+              >O servidor **nunca** vê dados em claro: envia e recebe **apenas
+              blobs cifrados**.</small
+            >
+          </div>
+        </section>
+
+        <section id="tab-logs" class="tab">
+          <h2>Auditoria</h2>
+          <ul id="logList" class="list"></ul>
+        </section>
+      </section>
+    </main>
+    <div id="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="modalTx">
+      <form method="dialog" class="form">
+        <h3>Nova Transação</h3>
+        <div class="form-row">
+          <label>Paciente ID</label><input id="tx_pid" />
+        </div>
+        <div class="form-row"><label>Tipo</label><input id="tx_tipo" /></div>
+        <div class="form-row">
+          <label>Conteúdo (JSON)</label
+          ><textarea id="tx_json" rows="6"></textarea>
+        </div>
+        <div class="actions">
+          <button value="cancel">Cancelar</button
+          ><button
+            value="default"
+            class="primary"
+            onclick="(async(e)=>{e.preventDefault(); const pid=$('#tx_pid').value.trim(); const tipo=$('#tx_tipo').value.trim(); let payload=$('#tx_json').value.trim(); try{ payload=payload?JSON.parse(payload):{}; }catch{ payload={raw:$('#tx_json').value}; } await App.bc.addTx({pid,tipo,payload,ts:Date.now()}); toast('Tx adicionada'); $('#modalTx').close(); }) (event)"
+          >
+            Adicionar
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="totp.js" defer></script>
+    <!-- Se você rodar npm run setup-argon2, estes arquivos serão servidos em /argon2/ -->
+    <!-- <script src="argon2/argon2.js" defer></script> -->
+    <script src="app.js" defer></script>
+    <script>
+      document.getElementById("isHttps").textContent =
+        location.protocol === "https:" ? "SIM" : "NÃO";
+      document.getElementById("isCOI").textContent = self.crossOriginIsolated
+        ? "SIM"
+        : "NÃO";
+    </script>
+  </body>
+</html>
+

@@ -1,0 +1,9 @@
+{
+  "index.html": "sha256-NlEEsxznZWBwnbrbX5nJ3KzMPkyKUAP0jvhVbH+hUDY=",
+  "styles.css": "sha256-9T66I7/L1w28RFxY+5YrHk8lB5plqCdbuNtPiBCsxog=",
+  "app.js": "sha256-iCc/Z803JM2kGrNzN68vipexReQ76fjoTDGZJLuE9vA=",
+  "manifest.json": "sha256-5I3tK/lQgGeyueLuQQEF2Cn4ZeAWLDflsSRbvmNVnGI=",
+  "sw.js": "sha256-mRcOV9rr/L+te9TxKaZho2s+fdNzGroisseckk/tQ74=",
+  "totp.js": "sha256-cx26YlXkFBHzHGa1Gqu/QPhfthd/Fiid4XEIcX4BOu4=",
+  "icon.png": "sha256-WcfXFEL8WPfboETtUUZcdwoF+LCJIdVnALmQIAv/Brc="
+}

@@ -1,0 +1,23 @@
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: serif;
+  }
+  header,
+  .sidebar,
+  #toast,
+  dialog {
+    display: none !important;
+  }
+  .content {
+    padding: 0 !important;
+  }
+  .card,
+  .form,
+  .list li {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    border-radius: 0;
+  }
+}
