@@ -47,8 +47,5 @@ npm start              # HTTPS em https://localhost:5173
 ## COOP/COEP e crossOriginIsolated
 - O servidor aplica **COOP: same-origin** e **COEP: require-corp** por header. Servindo todos os assets **mesma origem**, você obtém `crossOriginIsolated = true` para WASM/crypto mais forte.
 
-## Observação honesta
-- “NSA‑256” **não é** um padrão. Você está com **AES‑256‑GCM**, **SHA‑256**, **ECDSA P‑256**, **HMAC‑SHA‑256**, **Argon2id (WASM)** — prática robusta.
-- XOR de rotação é apenas ofuscação (não usado em trilhas críticas).
 
 MIT License.
