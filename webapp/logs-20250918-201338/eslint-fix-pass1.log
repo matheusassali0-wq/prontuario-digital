@@ -1,0 +1,72 @@
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\App.tsx
+  7:5  error  Parsing error: Unexpected token <
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\ai.ts
+  1:38  error  Parsing error: Unexpected token :
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\auth.ts
+  2:6  error  Parsing error: Unexpected token User
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\layouts\Shell.tsx
+  4:5  error  Parsing error: Unexpected token <
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\main.tsx
+  6:52  error  Parsing error: Unexpected token !
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\pages\Dashboard.tsx
+  14:5  error  Parsing error: Unexpected token <
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\pages\Pacientes.tsx
+  3:6  error  Parsing error: Unexpected token Pac
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\pages\Prontuarios.tsx
+  4:6  error  Parsing error: Unexpected token Evo
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\components\MedicalHistory\index.tsx
+  6:1  error  Parsing error: The keyword 'interface' is reserved
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\components\Prescription\index.tsx
+  18:32  error  Parsing error: Unexpected token :
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\components\auth\SecureLogin.tsx
+  7:9  error  Parsing error: Unexpected token global
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\hooks\useAuth.ts
+  5:1  error  Parsing error: The keyword 'interface' is reserved
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\Analytics\index.tsx
+  30:5  error  Parsing error: Unexpected token <
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\Dashboard\index.tsx
+  32:5  error  Parsing error: Unexpected token <
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\ExamSystem\index.tsx
+  7:1  error  Parsing error: The keyword 'interface' is reserved
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\Prescriptions\DigitalPrescription.tsx
+  12:6  error  Parsing error: Unexpected token PrescriptionInput
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\Reports\index.tsx
+  9:43  error  Parsing error: Unexpected token :
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\pages\Schedule\index.tsx
+  6:1  error  Parsing error: The keyword 'interface' is reserved
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\security\vault.ts
+  5:11  error  Parsing error: Unexpected token key
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\services\audit.ts
+  2:11  error  Parsing error: Unexpected token readonly
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\services\audit\AuditLogger.ts
+  2:11  error  Parsing error: Unexpected token readonly
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\stores\secureStore.ts
+  5:1  error  Parsing error: The keyword 'interface' is reserved
+
+C:\Users\mathe\OneDrive\Minhas fontes de dados\prontuario digital\webapp\src\src\utils\encryption.ts
+  4:11  error  Parsing error: Unexpected token readonly
+
+✖ 23 problems (23 errors, 0 warnings)
+

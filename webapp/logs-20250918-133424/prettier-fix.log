@@ -1,0 +1,33 @@
+[90mdata/evolucoes.json[39m 133ms (unchanged)
+[90mdata/pacientes.json[39m 3ms (unchanged)
+eslint.config.js 41ms
+[90mindex.html[39m 152ms (unchanged)
+[90mpackage-lock.json[39m 139ms (unchanged)
+[90mpackage.json[39m 3ms (unchanged)
+src/api.ts 33ms
+src/app.css 124ms
+src/App.tsx 30ms
+src/auth.ts 33ms
+src/layouts/Shell.tsx 14ms
+src/main.tsx 7ms
+src/pages/Dashboard.tsx 19ms
+src/pages/Pacientes.tsx 39ms
+[90msrc/pages/Prescriptions/DigitalPrescription.tsx[39m 1ms (unchanged)
+src/pages/Prontuarios.tsx 135ms
+src/src/components/auth/SecureLogin.tsx 93ms
+src/src/components/MedicalHistory/index.tsx 13ms
+src/src/components/Prescription/index.tsx 12ms
+src/src/hooks/useAuth.ts 20ms
+src/src/pages/Analytics/index.tsx 12ms
+src/src/pages/Dashboard/index.tsx 13ms
+src/src/pages/ExamSystem/index.tsx 13ms
+src/src/pages/Prescriptions/DigitalPrescription.tsx 271ms
+src/src/pages/Reports/index.tsx 9ms
+src/src/pages/Schedule/index.tsx 10ms
+src/src/security/vault.ts 28ms
+src/src/services/audit.ts 40ms
+src/src/services/audit/AuditLogger.ts 14ms
+src/src/stores/secureStore.ts 68ms
+src/src/utils/encryption.ts 8ms
+[90mtsconfig.json[39m 3ms (unchanged)
+vite.config.ts 9ms

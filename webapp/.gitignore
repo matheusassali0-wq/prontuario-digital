@@ -1,0 +1,29 @@
+# Dados sensíveis
+*.env
+.env*
+credentials.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Build/Cache
+dist/
+build/
+out/
+.next/
+.vite/
+.parcel-cache/
+coverage/
+.cache/
+.turbo/
+.eslintcache
