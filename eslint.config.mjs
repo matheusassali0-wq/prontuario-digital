@@ -1,60 +1,64 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 
 const jsConfigs = [
+  js.configs.recommended,
   {
-    ...js.configs.recommended,
-    files: ['server/server-pro.cjs'],
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'commonjs',
-      globals: {
-        require: 'readonly',
-        module: 'readonly',
-        process: 'readonly',
-        console: 'readonly',
-      },
-    },
     rules: {
-      ...(js.configs.recommended.rules ?? {}),
       'no-console': 'warn',
-    },
-  },
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+    }
+  }
 ];
 
-const tsRecommended = Array.isArray(tseslint.configs.recommendedTypeChecked)
-  ? tseslint.configs.recommendedTypeChecked
-  : [tseslint.configs.recommendedTypeChecked];
-
-const tsConfigs = tsRecommended.map((config) => ({
-  ...config,
-  files: ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts'],
-  languageOptions: {
-    ...(config.languageOptions ?? {}),
-    parserOptions: {
-      ...(config.languageOptions?.parserOptions ?? {}),
-      project: ['./webapp/tsconfig.json'],
-      tsconfigRootDir: import.meta.dirname ?? process.cwd(),
+const tsConfigs = [
+  ...tseslint.configs.recommendedTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.json', './webapp/tsconfig.json'].filter(Boolean),
+        tsconfigRootDir: import.meta.dirname ?? process.cwd(),
+        ecmaVersion: 'latest',
+        sourceType: 'module'
+      }
     },
-  },
-  rules: {
-    ...(config.rules ?? {}),
-    'no-console': 'warn',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-  },
-}));
+    rules: {
+      'no-console': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+    }
+  }
+];
+
+const reactConfigs = [
+  reactPlugin.configs.flat.recommended,
+  reactPlugin.configs.flat['jsx-runtime'],
+  reactHooksPlugin.configs.recommended,
+  jsxA11yPlugin.flatConfigs.recommended,
+  {
+    settings: {
+      react: {
+        version: 'detect'
+      }
+    },
+    rules: {
+      'react/prop-types': 'off',
+      'react/react-in-jsx-scope': 'off'
+    }
+  }
+];
 
 export default [
   {
     ignores: [
-      '**/node_modules/**',
+      'node_modules/**',
       'dist/**',
       'build/**',
       '.next/**',
       'coverage/**',
-      'exports/**',
-      'data/**',
-      'certs/**',
+      '*.min.js',
       'public/**',
       'scripts/**',
       'medical-terms.js',
