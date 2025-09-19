@@ -26,3 +26,8 @@ TestResults.xml
 credentials.json
 .DS_Store
 48ede97 (Initial commit)
+webapp/node_modules/
+venv/
+*.exe
+*.msi
+*.zip
