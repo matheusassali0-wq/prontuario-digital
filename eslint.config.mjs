@@ -1,6 +1,49 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
+const jsConfigs = [
+  {
+    ...js.configs.recommended,
+    files: ['server/server-pro.cjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: {
+      ...(js.configs.recommended.rules ?? {}),
+      'no-console': 'warn',
+    },
+  },
+];
+
+const tsRecommended = Array.isArray(tseslint.configs.recommendedTypeChecked)
+  ? tseslint.configs.recommendedTypeChecked
+  : [tseslint.configs.recommendedTypeChecked];
+
+const tsConfigs = tsRecommended.map((config) => ({
+  ...config,
+  files: ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts'],
+  languageOptions: {
+    ...(config.languageOptions ?? {}),
+    parserOptions: {
+      ...(config.languageOptions?.parserOptions ?? {}),
+      project: ['./webapp/tsconfig.json'],
+      tsconfigRootDir: import.meta.dirname ?? process.cwd(),
+    },
+  },
+  rules: {
+    ...(config.rules ?? {}),
+    'no-console': 'warn',
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+  },
+}));
+
 export default [
   {
     ignores: [
@@ -12,25 +55,25 @@ export default [
       'exports/**',
       'data/**',
       'certs/**',
+      'public/**',
+      'scripts/**',
+      'medical-terms.js',
+      'drc-calculator.js',
+      'app.js',
+      'server-full.cjs',
+      'server-lite.cjs',
+      'server-one.cjs',
+      'src/**',
+      'webapp/vite.config.ts',
+      'webapp/postcss.config.cjs',
+      'webapp/prettier.config.cjs',
+      'webapp/src/ai.ts',
       '**/.vite/**',
       '**/logs/**',
-      'webapp/data/logs-*'
+      'webapp/data/logs-*',
+      'webapp/src/src/**'
     ],
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
-  {
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.json', './webapp/tsconfig.json'].filter(Boolean),
-        tsconfigRootDir: import.meta.dirname ?? process.cwd(),
-        ecmaVersion: 'latest',
-        sourceType: 'module'
-      }
-    },
-    rules: {
-      'no-console': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
-    }
-  }
+  ...jsConfigs,
+  ...tsConfigs,
 ];
