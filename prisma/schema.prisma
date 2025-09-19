@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id           String   @id @default(cuid())
+  name         String
+  document     String?  @unique
+  birthDate    DateTime?
+  contactJson  Json?
+  payer        String?
+  allergies    String[] @default([])
+  tags         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  Events       Event[]
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  patientId  String
+  type       String
+  payload    Json?
+  createdAt  DateTime @default(now())
+  hashPrev   String?
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  who       String?
+  what      String
+  when      DateTime @default(now())
+  hashPrev  String?
+  meta      Json?
+
+  @@index([when])
+}

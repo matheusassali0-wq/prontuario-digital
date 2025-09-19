@@ -6,18 +6,27 @@
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
     "build": "tsc -p . --noEmit",
-    "format": "prettier -c ."
+    "format": "prettier -c .",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:migrate:dev": "prisma migrate dev"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "compression": "^1.7.5",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
     "hash-wasm": "^4.12.0",
+    "helmet": "^7.2.0",
+    "pg": "^8.13.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1"
+    "react-router-dom": "^7.9.1",
+    "zod": "^3.24.1"
   },
   "version": "1.0.0",
-  "description": "**Conte\u00fado:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (\u00edndice HMAC n\u2011gram)** e **rate limit**.",
+  "description": "**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.",
   "main": "app.js",
   "repository": {
     "type": "git",
@@ -31,9 +40,21 @@
   },
   "homepage": "https://github.com/MatheusAssali/prontuario-digital#readme",
   "devDependencies": {
-    "@types/react": "^19.1.13",
-    "@types/react-dom": "^19.1.9",
-    "typescript": "^5.9.2"
-  },
-  "type": "module"
+    "@eslint/js": "^9.17.0",
+    "@types/compression": "^1.7.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "eslint": "^9.17.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "prettier": "^3.4.2",
+    "prisma": "^5.22.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
 }
