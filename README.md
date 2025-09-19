@@ -1,4 +1,4 @@
-# NSA‑Secure Medical System — v3.1 (Irretocável)
+# Medical System — v3.1 
 
 **Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.
 
