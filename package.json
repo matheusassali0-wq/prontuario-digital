@@ -2,7 +2,11 @@
   "name": "prontuario",
   "private": true,
   "scripts": {
-    "dev": "node ./server/server-pro.cjs"
+    "dev": "node ./server/server-pro.cjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
+    "build": "tsc -p . --noEmit",
+    "format": "prettier -c ."
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -13,7 +17,7 @@
     "react-router-dom": "^7.9.1"
   },
   "version": "1.0.0",
-  "description": "**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.",
+  "description": "**Conte\u00fado:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (\u00edndice HMAC n\u2011gram)** e **rate limit**.",
   "main": "app.js",
   "repository": {
     "type": "git",
