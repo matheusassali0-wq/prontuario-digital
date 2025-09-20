@@ -106,6 +106,7 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     return undefined as T;
   }
 
+
     const text = await response.text();
     if (!text) {
       return undefined as T;
@@ -113,6 +114,7 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const parsed = JSON.parse(text) as unknown;
     return parsed as T;
   };
+
 
 const toISODate = (value: string) => {
   if (!value) return null;
@@ -169,6 +171,7 @@ const renderHighlight = (
       fragments.push(text.slice(cursor));
     }
     return fragments;
+
   }
 
   if (!fallbackQuery) return [text];
@@ -220,6 +223,7 @@ const iconForEvent = (type: string) => {
     default:
       return '📄';
   }
+
 };
 
 const groupTimelineByDay = (events: TimelineEvent[]) => {
@@ -366,6 +370,7 @@ export default function Pacientes() {
     }
   };
 
+
     useEffect(() => {
       void loadPatients();
     }, [debouncedSearch]);
@@ -373,6 +378,7 @@ export default function Pacientes() {
     useEffect(() => {
       void loadMetrics();
     }, []);
+
 
   useEffect(() => {
     if (timelineError) {
@@ -456,8 +462,10 @@ export default function Pacientes() {
         return [{ patient: response }, ...previous];
       });
 
+
         await setActivePatient(response.id);
         void loadMetrics();
+
       setFeedback(activePatientId ? 'Dados do paciente atualizados.' : 'Paciente cadastrado com sucesso.');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Não foi possível salvar o paciente.');
@@ -488,6 +496,7 @@ export default function Pacientes() {
         setErrorMessage(error instanceof Error ? error.message : 'Falha ao remover paciente.');
       }
     };
+
 
   const handleSelectPatient = async (id: string) => {
     await setActivePatient(id);
@@ -561,6 +570,7 @@ export default function Pacientes() {
               >
                 Atualizar lista
               </button>
+
           </div>
 
           <ul className="patient-table" role="list">
@@ -572,7 +582,9 @@ export default function Pacientes() {
               const contact = contactFromRecord(patient);
               return (
                 <li key={patient.id} className={patient.id === activePatientId ? 'selected' : ''}>
+
                     <button type="button" onClick={() => void handleSelectPatient(patient.id)}>
+
                     <div className="patient-main">
                       <h3>{renderHighlight(patient.name, highlights?.name, debouncedSearch)}</h3>
                       <span className="patient-document">
@@ -722,6 +734,7 @@ export default function Pacientes() {
 
             <div className="form-actions">
                 <button type="button" className="ghost" onClick={handleNewPatient}>
+
                 Novo paciente
               </button>
               <button type="submit" className="primary" disabled={isSubmitting}>

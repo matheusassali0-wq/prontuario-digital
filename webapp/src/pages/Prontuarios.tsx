@@ -377,6 +377,7 @@ export default function Prontuarios() {
     } catch (err: unknown) {
       setAutosaveStatus('error');
       setErrorMessage(err instanceof Error ? err.message : 'Não foi possível salvar a evolução');
+
       }
     },
     [activePatientId, loadVersions, refreshEvents],
@@ -644,6 +645,7 @@ export default function Prontuarios() {
               }}
               disabled={isCreating}
             >
+
             Nova Evolução (Retorno)
           </button>
           <button
