@@ -217,9 +217,9 @@ export default function Prontuarios() {
       try {
         const payload = await requestJson<{ patient: Patient }>(`/patients/${patientId}`);
         setPatient(payload.patient);
-    } catch (err: unknown) {
-      setPatient(null);
-      setErrorMessage(err instanceof Error ? err.message : 'Falha ao carregar paciente');
+      } catch (err: unknown) {
+        setPatient(null);
+        setErrorMessage(err instanceof Error ? err.message : 'Falha ao carregar paciente');
       }
     },
     [],
@@ -374,9 +374,9 @@ export default function Prontuarios() {
           ),
         );
         setAutosaveStatus('saved');
-    } catch (err: unknown) {
-      setAutosaveStatus('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível salvar a evolução');
+      } catch (err: unknown) {
+        setAutosaveStatus('error');
+        setErrorMessage(err instanceof Error ? err.message : 'Não foi possível salvar a evolução');
       }
     },
     [activePatientId, loadVersions, refreshEvents],
@@ -442,8 +442,8 @@ export default function Prontuarios() {
         if (activePatientId) {
           await refreshEvents(activePatientId);
         }
-        } catch (err: unknown) {
-          setErrorMessage(err instanceof Error ? err.message : 'Falha ao iniciar evolução');
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Falha ao iniciar evolução');
       } finally {
         setIsCreating(false);
       }
@@ -478,8 +478,8 @@ export default function Prontuarios() {
         if (activePatientId) {
           await refreshEvents(activePatientId);
         }
-        } catch (err: unknown) {
-          setErrorMessage(err instanceof Error ? err.message : 'Falha ao anexar arquivo');
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Falha ao anexar arquivo');
       } finally {
         setIsUploading(false);
       }
@@ -514,24 +514,24 @@ export default function Prontuarios() {
     const initialTemplate = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
     const followUpTemplate = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
     const actions = [] as { id: string; label: string; disabled?: boolean; run: () => void }[];
-      if (initialTemplate) {
-        actions.push({
-          id: 'new-initial',
-          label: 'Nova Evolução (1ª)',
-          run: () => {
-            void handleCreateEvolution(initialTemplate);
-          },
-        });
-      }
-      if (followUpTemplate) {
-        actions.push({
-          id: 'new-follow-up',
-          label: 'Nova Evolução (Retorno)',
-          run: () => {
-            void handleCreateEvolution(followUpTemplate);
-          },
-        });
-      }
+    if (initialTemplate) {
+      actions.push({
+        id: 'new-initial',
+        label: 'Nova Evolução (1ª)',
+        run: () => {
+          void handleCreateEvolution(initialTemplate);
+        },
+      });
+    }
+    if (followUpTemplate) {
+      actions.push({
+        id: 'new-follow-up',
+        label: 'Nova Evolução (Retorno)',
+        run: () => {
+          void handleCreateEvolution(followUpTemplate);
+        },
+      });
+    }
     actions.push({
       id: 'attach',
       label: 'Anexar Arquivo',
@@ -620,30 +620,30 @@ export default function Prontuarios() {
           </p>
         </div>
         <div className="prontuario-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => {
-                const template = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
-                if (template) {
-                  void handleCreateEvolution(template);
-                }
-              }}
-              disabled={isCreating}
-            >
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => {
+              const template = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
+              if (template) {
+                void handleCreateEvolution(template);
+              }
+            }}
+            disabled={isCreating}
+          >
             Nova Evolução (1ª)
           </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                const template = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
-                if (template) {
-                  void handleCreateEvolution(template);
-                }
-              }}
-              disabled={isCreating}
-            >
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              const template = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
+              if (template) {
+                void handleCreateEvolution(template);
+              }
+            }}
+            disabled={isCreating}
+          >
             Nova Evolução (Retorno)
           </button>
           <button
@@ -671,18 +671,18 @@ export default function Prontuarios() {
           </header>
           <ul className="encounter-list">
             {encounters.map((entry) => (
-                <li key={entry.encounter.id}>
-                  <button
-                    type="button"
-                    className={
-                      selectedEncounterId === entry.encounter.id
-                        ? 'encounter-item encounter-item-active'
-                        : 'encounter-item'
-                    }
-                    onClick={() => {
-                      void handleSelectEncounter(entry.encounter.id);
-                    }}
-                  >
+              <li key={entry.encounter.id}>
+                <button
+                  type="button"
+                  className={
+                    selectedEncounterId === entry.encounter.id
+                      ? 'encounter-item encounter-item-active'
+                      : 'encounter-item'
+                  }
+                  onClick={() => {
+                    void handleSelectEncounter(entry.encounter.id);
+                  }}
+                >
                   <span className="encounter-type">{entry.encounter.type}</span>
                   <span className="encounter-date">{formatDateTime(entry.encounter.date)}</span>
                   {entry.latestNote ? (
@@ -711,18 +711,18 @@ export default function Prontuarios() {
 
           {notes.length > 1 ? (
             <nav className="note-tabs" aria-label="Notas do encontro">
-                {notes.map((note) => (
-                  <button
-                    type="button"
-                    key={note.id}
-                    className={selectedNote?.id === note.id ? 'note-tab note-tab-active' : 'note-tab'}
-                    onClick={() => {
-                      void handleSelectNote(note.id);
-                    }}
-                  >
-                    Evolução #{note.version}
-                  </button>
-                ))}
+              {notes.map((note) => (
+                <button
+                  type="button"
+                  key={note.id}
+                  className={selectedNote?.id === note.id ? 'note-tab note-tab-active' : 'note-tab'}
+                  onClick={() => {
+                    void handleSelectNote(note.id);
+                  }}
+                >
+                  Evolução #{note.version}
+                </button>
+              ))}
             </nav>
           ) : null}
 
@@ -737,11 +737,11 @@ export default function Prontuarios() {
 
           <div className="editor-footer">
             <label className="attachment-upload">
-                <input
-                  id="attachment-input"
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={handleAttachmentInputChange}
+              <input
+                id="attachment-input"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleAttachmentInputChange}
                 disabled={!selectedNote || isUploading}
               />
               <span>{isUploading ? 'Enviando…' : 'Anexar arquivo'}</span>
@@ -807,20 +807,20 @@ export default function Prontuarios() {
         </section>
 
         <aside className="timeline-panel" aria-label="Timeline 360°">
-            <header className="sidebar-header">
-              <h2>Timeline 360°</h2>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  if (activePatientId) {
-                    void refreshEvents(activePatientId);
-                  }
-                }}
-              >
-                Atualizar
-              </button>
-            </header>
+          <header className="sidebar-header">
+            <h2>Timeline 360°</h2>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                if (activePatientId) {
+                  void refreshEvents(activePatientId);
+                }
+              }}
+            >
+              Atualizar
+            </button>
+          </header>
           {isTimelineLoading ? <p className="muted">Carregando eventos…</p> : null}
           {!isTimelineLoading && groupedTimeline.length === 0 ? (
             <p className="muted">Nenhum evento registrado para este paciente.</p>
@@ -839,19 +839,20 @@ export default function Prontuarios() {
                       {typeof event.payload?.summary === 'string' ? (
                         <p>{event.payload.summary}</p>
                       ) : null}
-                        {event.type.startsWith('NOTE') && typeof event.payload?.noteId === 'string' ? (
-                          <button
-                            type="button"
-                            className="ghost-button"
-                            onClick={() => {
-                              const encounterId = typeof event.payload?.encounterId === 'string' ? event.payload.encounterId : null;
-                              if (encounterId) {
-                                void (handleSelectEncounter(encounterId).catch(() => undefined));
-                              }
-                            }}
-                          >
-                            Abrir nota
-                          </button>
+                      {event.type.startsWith('NOTE') && typeof event.payload?.noteId === 'string' ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => {
+                            const encounterId =
+                              typeof event.payload?.encounterId === 'string' ? event.payload.encounterId : null;
+                            if (encounterId) {
+                              void handleSelectEncounter(encounterId).catch(() => undefined);
+                            }
+                          }}
+                        >
+                          Abrir nota
+                        </button>
                       ) : null}
                     </li>
                   ))}
