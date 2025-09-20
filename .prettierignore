@@ -1,0 +1,11 @@
+**/node_modules/
+dist/
+build/
+.next/
+coverage/
+exports/
+data/
+certs/
+**/.vite/
+**/logs/
+webapp/data/logs-*
