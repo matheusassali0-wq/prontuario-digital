@@ -73,7 +73,8 @@ export default [
       '**/.vite/**',
       '**/logs/**',
       'webapp/data/logs-*',
-      'webapp/src/src/**',
+      'webapp/src/src/**'
+
     ],
   },
   ...jsConfigs,
