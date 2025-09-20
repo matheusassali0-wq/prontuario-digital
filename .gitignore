@@ -46,6 +46,8 @@ data/**
 !data/*.schema.json
 !data/*.example.json
 
+server/uploads/
+
 webapp/node_modules/
 webapp/coverage/
 webapp/dist/

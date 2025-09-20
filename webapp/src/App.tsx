@@ -3,6 +3,7 @@ import Shell from './layouts/Shell';
 import Dashboard from './pages/Dashboard';
 import Pacientes from './pages/Pacientes';
 import Prontuarios from './pages/Prontuarios';
+import ProntuarioPrint from './pages/ProntuarioPrint';
 import Prescricoes from './pages/Prescricoes';
 import Configuracoes from './pages/Configuracoes';
 
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+      <Route path="/prontuarios/imprimir/:noteId" element={<ProntuarioPrint />} />
     </Routes>
   );
 }
