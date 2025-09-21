@@ -102,6 +102,7 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
       throw new Error(detail || fallback || 'Falha inesperada ao comunicar com a API.');
     }
 
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -722,6 +723,7 @@ export default function Pacientes() {
 
             <div className="form-actions">
                 <button type="button" className="ghost" onClick={handleNewPatient}>
+
                 Novo paciente
               </button>
               <button type="submit" className="primary" disabled={isSubmitting}>

@@ -79,6 +79,7 @@ export default [
       '**/logs/**',
       'webapp/data/logs-*',
       'webapp/src/src/**'
+
     ],
   },
   ...jsConfigs,
