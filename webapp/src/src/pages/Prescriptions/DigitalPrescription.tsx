@@ -433,7 +433,11 @@ const DigitalPrescription: React.FC = () => {
   return (
     <Container>
       <SecurityInfo />
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={(event) => {
+          void handleSubmit(event);
+        }}
+      >
         <div style={row}>
           <label htmlFor="medication" style={labelS}>
             Medicamento
