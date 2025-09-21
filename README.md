@@ -1,51 +1,97 @@
-# Medical System — v3.1 
+# Prontuário Digital — Pacientes (PR5) + Evoluções (PR6)
 
-**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.
+## Como rodar no WSL2 (Ubuntu 24.04)
 
-## Rodar com HTTPS local (mkcert)
 ```bash
-# 1) Gere certificados locais:
-#    https://github.com/FiloSottile/mkcert
-mkcert -install
-mkdir certs
-mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost 127.0.0.1 ::1
+# Pré-requisitos
+# - Node.js 20 ou 22 (nvm use 22)
+# - Docker + Docker Compose (Postgres 16 + Redis 7)
+# - corepack enable || true
 
-# 2) Instale deps para Argon2 (opcional, cliente) e rode o servidor
-npm install
-npm run setup-argon2   # copia argon2.wasm/js para public/argon2 (opcional, ativa KDF Argon2id)
-npm start              # HTTPS em https://localhost:5173
+cp .env.example .env
+
+# Suba os serviços de dados
+docker compose up -d db redis
+
+# Instale dependências com devDependencies obrigatórias
+npm ci --include=dev
+(cd webapp && npm ci --include=dev)
+
+# Aplique as migrações e gere o Prisma Client
+npx prisma migrate deploy
+npx prisma generate
+
+# Rode os servidores
+npm run dev                      # API Express (porta 3030)
+(cd webapp && npm run dev -- --host 0.0.0.0 --port ${WEBAPP_PORT:-5173})
 ```
 
-> Sem certificados, o servidor cai para **HTTP** (apenas dev). Para **WASM/COI** completo, use HTTPS + COOP/COEP (já aplicados).
+> **Importante:** este repositório ainda contém `node_modules/` commitados a partir do Windows.
+> Em WSL2/Linux, execute `rm -rf node_modules webapp/node_modules && npm ci --include=dev && (cd webapp && npm ci --include=dev)`
+> caso encontre erros `vite: Permission denied` ou binários faltantes.
 
-## Scripts npm
-- `npm start` → server HTTPS/HTTP com headers estritos (CSP, COOP/COEP, etc.).
-- `npm run setup-argon2` → copia `argon2-browser` (wasm/js) para `public/argon2/`.
-- `npm run sign-integrity` → gera/assina `public/integrity.json.sig` com chave externa (veja `scripts/sign-integrity.js`).
+### Variáveis de ambiente relevantes (SSO / Prescrições)
 
-## Vault Zero‑Knowledge (backup/sync E2EE)
-- Registro: `POST /api/register` `{ clientId, apiKey }` → servidor guarda **hash PBKDF2** da apiKey (servidor nunca vê dados em claro).
-- PUT: `POST /vault/put` `{ clientId, docId, blobB64, meta }` com `Authorization: Bearer <apiKey>`.
-- GET: `GET /vault/get?clientId=...&docId=...` com `Authorization: Bearer <apiKey>`.
-- **Os blobs são JSONs do IndexedDB criptografado (E2EE).**
+```
+MEMED_MODE=print                 # use sso_birdid quando configurar o Bird ID
+BIRDID_ISSUER=https://birdid.example.com
+BIRDID_CLIENT_ID=birdid-client-id
+BIRDID_REDIRECT_URI=http://localhost:3030/auth/callback
+MEMED_SSO_URL=https://app.memed.com.br/sso
+MEMED_RETURN_URL=http://localhost:5173/prescricoes
+SESSION_SECRET=troque-isto
+```
 
-## Argon2id (WASM) no cliente
-- Este pacote inclui o **gancho** para Argon2id. Para ativar:
-  1. `npm install argon2-browser`
-  2. `npm run setup-argon2` (copia `argon2.js` e `argon2.wasm` para `public/argon2/`)
-  3. Descomente a linha `<script src="argon2/argon2.js" ...>` no `index.html`
-- Sem o wasm, o KDF cai em **PBKDF2/300k** como fallback.
+## Endpoints principais (`server/server-pro.cjs`)
 
-## MFA (TOTP)
-- Ative no Dashboard → gera `secret` Base32 e `otpauth://` (use Google Authenticator, 1Password, Authy).
-- Na abertura da sessão, será exigido o TOTP (6 dígitos).
+- `GET    /api/v1/health` — status básico da API.
+- `GET    /api/v1/patients` — listagem paginada com busca insensível.
+- `GET    /api/v1/patients/metrics` — totais e indicadores da tela.
+- `GET    /api/v1/patients/:id` — leitura de paciente.
+- `POST   /api/v1/patients` — criação com validação Zod.
+- `PUT    /api/v1/patients/:id` — atualização completa.
+- `DELETE /api/v1/patients/:id` — remoção lógica (com eventos/auditoria).
+- `GET    /api/v1/patients/:id/events` — timeline 360° (cadeia WORM).
+- `POST   /api/v1/encounters` — registra encontro clínico (INITIAL/FOLLOW_UP).
+- `GET    /api/v1/encounters?patient_id=` — lista encontros com nota mais recente.
+- `GET    /api/v1/encounters/:id` — detalhes do encontro + notas/versões.
+- `POST   /api/v1/notes` — cria evolução (v1) com template clínico.
+- `PUT    /api/v1/notes/:id` — autosave/versionamento append-only.
+- `GET    /api/v1/notes/:id` / `/versions` — leitura + histórico completo.
+- `POST   /api/v1/attachments` — upload seguro (pdf/png/jpg/jpeg ≤ 10 MB).
+- `GET    /api/v1/attachments/:id/download` — download com Content-Disposition.
 
-## Assinatura de integridade externa
-- Rode `node scripts/sign-integrity.js` para assinar `public/integrity.json` com um **par de chaves externo** (TOFU ⇒ assinatura real fora do cliente).
-- Verificação da assinatura pode ser feita em gateway/reverso ou numa rotina administrativa.
+## Frontend (`webapp/`)
 
-## COOP/COEP e crossOriginIsolated
-- O servidor aplica **COOP: same-origin** e **COEP: require-corp** por header. Servindo todos os assets **mesma origem**, você obtém `crossOriginIsolated = true` para WASM/crypto mais forte.
+- Página `/pacientes` com:
+  - Busca debounced (320 ms) + destaque visual do termo.
+  - Cards de métricas consumindo `/metrics`.
+  - Formulário completo (react-hook-form + zod) com chips para alergias e tags.
+  - Seleção ativa global (Zustand) + timeline dinâmica (`/events`).
+  - Toasts de feedback e tratamento de erros HTTP padronizados.
+- Página `/prontuarios` com:
+  - Cabeçalho integrado ao Paciente ativo + ações rápidas.
+  - Criação de encontros/notas a partir de templates reais (NEFROLOGIA — 1ª CONSULTA / RETORNO).
+  - Editor com autosave (1,5 s), versionamento, restauração e anexos.
+  - Command Palette (Ctrl/Cmd+K) com atalhos para nova evolução, anexar e imprimir.
+  - Timeline 360° atualizada em tempo real (ENCOUNTER/NOTE_CREATE/NOTE_UPDATE/ATTACHMENT).
+  - Rota dedicada `/prontuarios/imprimir/:noteId` com layout print-friendly (A4, cabeçalho Dr. Matheus).
 
+## Auditoria e timeline
 
-MIT License.
+Cada mutação cria eventos encadeados (`hashPrev` + SHA-256) em `Event` e registra auditoria append-only (`AuditLog`).
+A timeline apresenta agrupamento por dia com ícones contextuais (cadastro, evolução, anexos, prescrições etc.).
+
+## Scripts úteis
+
+- `npm run lint` / `npm run typecheck` / `npm run build` — checagens na raiz (TypeScript limitado a arquivos do servidor/scripts).
+- `cd webapp && npm run lint` — lint escopado para a página de Pacientes e store.
+- `cd webapp && npm run typecheck` — garante typings do módulo de Pacientes.
+- `cd webapp && npm run build` — **pode exigir reinstalação das dependências** devido a artefatos do Windows (ver observação acima).
+- `npm run prisma:migrate` — aplica migrações em produção; `npm run prisma:migrate:dev` para ciclos locais.
+
+## Observações
+
+- Seeds/fixtures não são versionados; utilize scripts locais conforme necessidade.
+- A limpeza pesada dos diretórios `node_modules/`, `dist/`, `exports/`, `data/` e `certs/` será coordenada via issue dedicada.
+- Timezone padrão GMT-3 (America/Sao_Paulo) para métricas e timeline.
