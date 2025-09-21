@@ -48,6 +48,7 @@ const tsConfigs = tsRecommended.map((config) => ({
     '@typescript-eslint/no-unsafe-member-access': 'off',
     '@typescript-eslint/no-unsafe-argument': 'off',
     '@typescript-eslint/no-unsafe-return': 'off',
+
   },
 }));
 
@@ -79,6 +80,7 @@ export default [
       '**/logs/**',
       'webapp/data/logs-*',
       'webapp/src/src/**'
+
     ],
   },
   ...jsConfigs,

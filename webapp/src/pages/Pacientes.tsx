@@ -101,7 +101,6 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
       const fallback = response.statusText?.trim().length ? response.statusText : undefined;
       throw new Error(detail || fallback || 'Falha inesperada ao comunicar com a API.');
     }
-
   if (response.status === 204) {
     return undefined as T;
   }
@@ -220,6 +219,7 @@ const iconForEvent = (type: string) => {
     default:
       return '📄';
   }
+
 };
 
 const groupTimelineByDay = (events: TimelineEvent[]) => {
@@ -488,7 +488,6 @@ export default function Pacientes() {
         setErrorMessage(error instanceof Error ? error.message : 'Falha ao remover paciente.');
       }
     };
-
   const handleSelectPatient = async (id: string) => {
     await setActivePatient(id);
   };

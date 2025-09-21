@@ -41,7 +41,6 @@ MEMED_SSO_URL=https://app.memed.com.br/sso
 MEMED_RETURN_URL=http://localhost:5173/prescricoes
 SESSION_SECRET=troque-isto
 ```
-
 ## Endpoints principais (`server/server-pro.cjs`)
 
 - `GET    /api/v1/health` — status básico da API.
