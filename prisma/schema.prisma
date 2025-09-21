@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id           String   @id @default(cuid())
+  name         String
+  document     String?  @unique
+  birthDate    DateTime?
+  contactJson  Json?
+  payer        String?
+  allergies    String[] @default([])
+  tags         String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  Events       Event[]
+  Encounters   Encounter[]
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  patientId  String
+  type       String
+  payload    Json?
+  createdAt  DateTime @default(now())
+  hashPrev   String?
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  who       String?
+  what      String
+  when      DateTime @default(now())
+  hashPrev  String?
+  meta      Json?
+
+  @@index([when])
+}
+
+model Encounter {
+  id        String   @id @default(cuid())
+  patientId String
+  date      DateTime @default(now())
+  type      String
+  notes     Note[]
+  createdAt DateTime @default(now())
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, date])
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  encounterId String
+  authorId    String?
+  contentText String
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  Versions    NoteVersion[]
+  Attachments Attachment[]
+
+  @@index([encounterId, updatedAt])
+}
+
+model NoteVersion {
+  id          String   @id @default(cuid())
+  noteId      String
+  version     Int
+  contentText String
+  createdAt   DateTime @default(now())
+  note        Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, version])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  noteId    String
+  filePath  String
+  fileName  String
+  mime      String
+  size      Int
+  createdAt DateTime @default(now())
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId, createdAt])
+}
