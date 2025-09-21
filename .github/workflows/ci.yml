@@ -1,0 +1,139 @@
+name: CI (lint • typecheck • build)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '**/.vscode/**'
+      - 'exports/**'
+      - 'data/**'
+      - 'certs/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.pdf'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '**/.vscode/**'
+      - 'exports/**'
+      - 'data/**'
+      - 'certs/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.jpeg'
+      - '**/*.pdf'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NODE_ENV: development
+  npm_config_production: "false"
+  npm_config_audit: "false"
+  npm_config_fund: "false"
+
+jobs:
+  hygiene:
+    name: 🔍 Higiene do repo
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Falhar se artefatos estiverem versionados
+        run: |
+          set -e
+          if git ls-files | grep -E '(^|/)node_modules($|/)|(^|/)(dist|build|\.next|coverage)($|/)' >/dev/null; then
+            echo "::error::Artefatos (node_modules/dist/build/.next/coverage) estão rastreados no git. Ajuste .gitignore e remova do tracking em PR separado."
+            exit 1
+          fi
+          echo "OK: Sem artefatos críticos versionados."
+
+  lint_typecheck:
+    name: ✅ Lint & Typecheck (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    needs: hygiene
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            webapp/package-lock.json
+            server/package-lock.json
+      - run: corepack enable || true
+
+      - name: Instalar deps (raiz)
+        if: hashFiles('package.json') != ''
+        run: npm ci --include=dev
+
+      - name: Lint (raiz)
+        if: hashFiles('package.json') != ''
+        run: npm run -s lint || npx eslint . --max-warnings=0
+
+      - name: Typecheck (raiz)
+        if: hashFiles('tsconfig.json') != ''
+        run: npm run -s typecheck || npx tsc -p . --noEmit
+
+      - name: Instalar deps (webapp)
+        if: hashFiles('webapp/package.json') != ''
+        working-directory: webapp
+        run: npm ci --include=dev
+
+      - name: Lint (webapp)
+        if: hashFiles('webapp/package.json') != ''
+        working-directory: webapp
+        run: npm run -s lint || npx eslint . --max-warnings=0
+
+      - name: Typecheck (webapp)
+        if: hashFiles('webapp/tsconfig.json') != ''
+        working-directory: webapp
+        run: npm run -s typecheck || npx tsc -p . --noEmit
+
+  build:
+    name: 🏗️ Build (Node 20)
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            webapp/package-lock.json
+            server/package-lock.json
+
+      - name: Build raiz
+        if: hashFiles('package.json') != ''
+        run: |
+          npm ci --include=dev
+          npm run -s build || (npx vite build || npx tsc -p . --noEmit)
+
+      - name: Build webapp
+        if: hashFiles('webapp/package.json') != ''
+        working-directory: webapp
+        run: |
+          npm ci --include=dev
+          npm run -s build || (npx vite build || npx tsc -p . --noEmit)
