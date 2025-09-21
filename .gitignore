@@ -1,4 +1,9 @@
 **/node_modules/
+# Next.js coverage artifacts accidentally generated inside dependency trees
+node_modules/dist/build/.next/
+node_modules/dist/build/.next/coverage/
+webapp/node_modules/dist/build/.next/
+webapp/node_modules/dist/build/.next/coverage/
 dist/
 build/
 out/
