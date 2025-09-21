@@ -1,9 +1,12 @@
 import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
 
-const tsRecommended = Array.isArray(tseslint.configs.recommendedTypeChecked)
-  ? tseslint.configs.recommendedTypeChecked
-  : [tseslint.configs.recommendedTypeChecked];
+const recommendedTypeChecked = Array.isArray(
+  tsPlugin.configs['flat/recommended-type-checked'],
+)
+  ? tsPlugin.configs['flat/recommended-type-checked']
+  : [tsPlugin.configs['flat/recommended-type-checked']];
 
 const browserGlobals = {
   window: 'readonly',
@@ -12,6 +15,8 @@ const browserGlobals = {
   RequestInit: 'readonly',
   JSX: 'readonly',
 };
+
+const targetFiles = ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'];
 
 export default [
   {
@@ -22,12 +27,12 @@ export default [
       'public/**',
       'src/ai.ts',
       'src/src/**',
-      '**/.vite/**'
+      '**/.vite/**',
     ],
   },
   {
     ...js.configs.recommended,
-    files: ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'],
+    files: targetFiles,
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -38,15 +43,16 @@ export default [
       'no-console': 'warn',
     },
   },
-  ...tsRecommended.map((config) => ({
+  ...recommendedTypeChecked.map((config) => ({
     ...config,
-    files: ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'],
+    files: targetFiles,
     languageOptions: {
       ...(config.languageOptions ?? {}),
       globals: {
         ...(config.languageOptions?.globals ?? {}),
         ...browserGlobals,
       },
+      parser: tsParser,
       parserOptions: {
         ...(config.languageOptions?.parserOptions ?? {}),
         project: ['./tsconfig.json'],

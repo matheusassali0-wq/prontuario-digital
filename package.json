@@ -27,7 +27,7 @@
     "zod": "^3.24.1"
   },
   "version": "1.0.0",
-  "description": "**Conte\u00fado:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (\u00edndice HMAC n\u2011gram)** e **rate limit**.",
+  "description": "**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.",
   "main": "app.js",
   "repository": {
     "type": "git",
@@ -49,8 +49,7 @@
     "eslint": "^9.35.0",
     "prettier": "^3.6.2",
     "prisma": "^5.22.0",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.44.0"
+    "typescript": "^5.9.2"
   },
   "type": "module"
 }
