@@ -52,7 +52,7 @@ data/**
 !data/*.example.json
 
 server/uploads/
-
+uploads/**
 webapp/node_modules/
 webapp/coverage/
 webapp/dist/
