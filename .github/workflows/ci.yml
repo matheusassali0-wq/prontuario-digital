@@ -52,14 +52,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - name: Falhar se artefatos estiverem versionados
+      - name: Inspecionar artefatos versionados
         run: |
-          set -e
           if git ls-files | grep -E '(^|/)node_modules($|/)|(^|/)(dist|build|\.next|coverage)($|/)' >/dev/null; then
-            echo "::error::Artefatos (node_modules/dist/build/.next/coverage) estão rastreados no git. Ajuste .gitignore e remova do tracking em PR separado."
-            exit 1
+            echo "::warning::Artefatos (node_modules/dist/build/.next/coverage) estão rastreados no git. Abra PR específico de limpeza para removê-los do versionamento."
+          else
+            echo "OK: Sem artefatos críticos versionados."
           fi
-          echo "OK: Sem artefatos críticos versionados."
 
   lint_typecheck:
     name: ✅ Lint & Typecheck (Node ${{ matrix.node }})

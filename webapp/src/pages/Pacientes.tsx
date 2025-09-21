@@ -83,36 +83,35 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     },
     ...init,
   });
-
-  if (!response.ok) {
-    let detail: string | undefined;
-    try {
-      const body = (await response.json()) as unknown;
-      if (body && typeof body === 'object') {
-        const record = body as Record<string, unknown>;
-        const candidate = record.detail ?? record.error;
-        if (typeof candidate === 'string' && candidate.trim().length > 0) {
-          detail = candidate;
+    if (!response.ok) {
+      let detail: string | undefined;
+      try {
+        const body = (await response.json()) as unknown;
+        if (body && typeof body === 'object') {
+          const record = body as Record<string, unknown>;
+          const candidate = record.detail ?? record.error;
+          if (typeof candidate === 'string' && candidate.trim().length > 0) {
+            detail = candidate;
+          }
         }
+      } catch {
+        detail = undefined;
       }
-    } catch {
-      detail = undefined;
+      const fallback = response.statusText?.trim().length ? response.statusText : undefined;
+      throw new Error(detail || fallback || 'Falha inesperada ao comunicar com a API.');
     }
-    const fallback = response.statusText?.trim().length ? response.statusText : undefined;
-    throw new Error(detail || fallback || 'Falha inesperada ao comunicar com a API.');
-  }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const text = await response.text();
-  if (!text) {
-    return undefined as T;
-  }
-  const parsed = JSON.parse(text) as unknown;
-  return parsed as T;
-};
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    const parsed = JSON.parse(text) as unknown;
+    return parsed as T;
+  };
 
 const toISODate = (value: string) => {
   if (!value) return null;
@@ -366,14 +365,13 @@ export default function Pacientes() {
     }
   };
 
-  useEffect(() => {
-    void loadPatients();
-  }, [debouncedSearch]);
+    useEffect(() => {
+      void loadPatients();
+    }, [debouncedSearch]);
 
-  useEffect(() => {
-    void loadMetrics();
-  }, []);
-
+    useEffect(() => {
+      void loadMetrics();
+    }, []);
   useEffect(() => {
     if (timelineError) {
       setErrorMessage(timelineError);
@@ -456,8 +454,8 @@ export default function Pacientes() {
         return [{ patient: response }, ...previous];
       });
 
-      await setActivePatient(response.id);
-      void loadMetrics();
+        await setActivePatient(response.id);
+        void loadMetrics();
       setFeedback(activePatientId ? 'Dados do paciente atualizados.' : 'Paciente cadastrado com sucesso.');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Não foi possível salvar o paciente.');
@@ -468,26 +466,26 @@ export default function Pacientes() {
     void handleSubmit((values) => onSubmit(values))(event);
   };
 
-  const handleNewPatient = () => {
-    void setActivePatient(null);
-    reset(EMPTY_FORM);
-  };
+    const handleNewPatient = () => {
+      void setActivePatient(null);
+      reset(EMPTY_FORM);
+    };
 
-  const handleDeletePatient = async () => {
-    if (!activePatientId) return;
-    const selected = activePatient?.name ?? 'este paciente';
-    if (!window.confirm(`Remover permanentemente ${selected}?`)) return;
-    try {
-      await fetchJson(`/patients/${activePatientId}`, { method: 'DELETE' });
-      setPatients((previous) => previous.filter((item) => item.patient.id !== activePatientId));
-      dropPatientEvents(activePatientId);
-      await setActivePatient(null);
-      void loadMetrics();
-      setFeedback('Paciente removido com sucesso.');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Falha ao remover paciente.');
-    }
-  };
+    const handleDeletePatient = async () => {
+      if (!activePatientId) return;
+      const selected = activePatient?.name ?? 'este paciente';
+      if (!window.confirm(`Remover permanentemente ${selected}?`)) return;
+      try {
+        await fetchJson(`/patients/${activePatientId}`, { method: 'DELETE' });
+        setPatients((previous) => previous.filter((item) => item.patient.id !== activePatientId));
+        dropPatientEvents(activePatientId);
+        await setActivePatient(null);
+        void loadMetrics();
+        setFeedback('Paciente removido com sucesso.');
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : 'Falha ao remover paciente.');
+      }
+    };
 
   const handleSelectPatient = async (id: string) => {
     await setActivePatient(id);
@@ -553,9 +551,14 @@ export default function Pacientes() {
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
             </label>
-            <button type="button" className="ghost" onClick={() => void loadPatients()} disabled={isLoadingList}>
-              Atualizar lista
-            </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => void loadPatients()}
+                disabled={isLoadingList}
+              >
+                Atualizar lista
+              </button>
           </div>
 
           <ul className="patient-table" role="list">
@@ -567,7 +570,7 @@ export default function Pacientes() {
               const contact = contactFromRecord(patient);
               return (
                 <li key={patient.id} className={patient.id === activePatientId ? 'selected' : ''}>
-                  <button type="button" onClick={() => void handleSelectPatient(patient.id)}>
+                    <button type="button" onClick={() => void handleSelectPatient(patient.id)}>
                     <div className="patient-main">
                       <h3>{renderHighlight(patient.name, highlights?.name, debouncedSearch)}</h3>
                       <span className="patient-document">
@@ -716,18 +719,18 @@ export default function Pacientes() {
             </div>
 
             <div className="form-actions">
-              <button type="button" className="ghost" onClick={handleNewPatient}>
+                <button type="button" className="ghost" onClick={handleNewPatient}>
                 Novo paciente
               </button>
               <button type="submit" className="primary" disabled={isSubmitting}>
                 {activePatientId ? 'Salvar alterações' : 'Cadastrar paciente'}
               </button>
-              <button
-                type="button"
-                className="danger"
-                onClick={() => void handleDeletePatient()}
-                disabled={!activePatientId || isSubmitting}
-              >
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => void handleDeletePatient()}
+                  disabled={!activePatientId || isSubmitting}
+                >
                 Remover
               </button>
               <button
