@@ -55,6 +55,7 @@ SESSION_SECRET=troque-isto
 - `DELETE /api/v1/patients/:id` — remoção lógica (com eventos/auditoria).
 - `GET    /api/v1/patients/:id/events` — timeline 360° (cadeia WORM).
 - `GET    /api/pacientes/:id/export` — exporta JSON LGPD (paciente + evoluções + prescrições).
+
 - `POST   /api/v1/encounters` — registra encontro clínico (INITIAL/FOLLOW_UP).
 - `GET    /api/v1/encounters?patient_id=` — lista encontros com nota mais recente.
 - `GET    /api/v1/encounters/:id` — detalhes do encontro + notas/versões.

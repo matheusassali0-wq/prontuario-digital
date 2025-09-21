@@ -83,7 +83,6 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     },
     ...init,
   });
-
     if (!response.ok) {
       let detail: string | undefined;
       try {
@@ -373,7 +372,6 @@ export default function Pacientes() {
     useEffect(() => {
       void loadMetrics();
     }, []);
-
   useEffect(() => {
     if (timelineError) {
       setErrorMessage(timelineError);
