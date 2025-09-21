@@ -26,7 +26,7 @@ const resolveApiBase = () => {
   if (typeof candidate === 'string' && candidate.trim().length > 0) {
     return candidate;
   }
-  return '/api/v1';
+  return 'http://127.0.0.1:3030/api';
 };
 
 const buildUrl = (path: string) => {

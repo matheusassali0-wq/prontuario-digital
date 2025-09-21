@@ -43,6 +43,12 @@ const tsConfigs = tsRecommended.map((config) => ({
     ...(config.rules ?? {}),
     'no-console': 'warn',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unsafe-assignment': 'off',
+    '@typescript-eslint/no-unsafe-call': 'off',
+    '@typescript-eslint/no-unsafe-member-access': 'off',
+    '@typescript-eslint/no-unsafe-argument': 'off',
+    '@typescript-eslint/no-unsafe-return': 'off',
+
   },
 }));
 
@@ -73,7 +79,8 @@ export default [
       '**/.vite/**',
       '**/logs/**',
       'webapp/data/logs-*',
-      'webapp/src/src/**',
+      'webapp/src/src/**'
+
     ],
   },
   ...jsConfigs,

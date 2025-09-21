@@ -30,6 +30,17 @@ npm run dev                      # API Express (porta 3030)
 > Em WSL2/Linux, execute `rm -rf node_modules webapp/node_modules && npm ci --include=dev && (cd webapp && npm ci --include=dev)`
 > caso encontre erros `vite: Permission denied` ou binários faltantes.
 
+### Variáveis de ambiente relevantes (SSO / Prescrições)
+
+```
+MEMED_MODE=print                 # use sso_birdid quando configurar o Bird ID
+BIRDID_ISSUER=https://birdid.example.com
+BIRDID_CLIENT_ID=birdid-client-id
+BIRDID_REDIRECT_URI=http://localhost:3030/auth/callback
+MEMED_SSO_URL=https://app.memed.com.br/sso
+MEMED_RETURN_URL=http://localhost:5173/prescricoes
+SESSION_SECRET=troque-isto
+```
 ## Endpoints principais (`server/server-pro.cjs`)
 
 - `GET    /api/v1/health` — status básico da API.
