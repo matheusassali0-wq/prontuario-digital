@@ -163,7 +163,7 @@ const groupEventsByDay = (events: TimelineEvent[]) => {
       groups.set(key, [event]);
     }
   });
-  return Array.from(groups.entries()).map(([date, group]) => ({ date, events: group }));
+  return Array.from(groups.entries()).map(([date, eventsForDate]) => ({ date, events: eventsForDate }));
 };
 
 export default function Prontuarios() {
@@ -513,7 +513,7 @@ export default function Prontuarios() {
   const paletteActions = useMemo(() => {
     const initialTemplate = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
     const followUpTemplate = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
-    const actions = [] as { id: string; label: string; disabled?: boolean; run: () => void }[];
+    const actions: { id: string; label: string; disabled?: boolean; run: () => void }[] = [];
     if (initialTemplate) {
       actions.push({
         id: 'new-initial',
@@ -836,9 +836,7 @@ export default function Prontuarios() {
                         <strong>{event.type}</strong>
                         <span className="muted"> · {formatDateTime(event.createdAt)}</span>
                       </div>
-                      {typeof event.payload?.summary === 'string' ? (
-                        <p>{event.payload.summary}</p>
-                      ) : null}
+                      {typeof event.payload?.summary === 'string' ? <p>{event.payload.summary}</p> : null}
                       {event.type.startsWith('NOTE') && typeof event.payload?.noteId === 'string' ? (
                         <button
                           type="button"
