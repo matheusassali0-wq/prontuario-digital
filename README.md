@@ -22,6 +22,7 @@ npx prisma migrate deploy
 npx prisma generate
 
 # Rode os servidores (API habilita idempotência + export LGPD; webapp registra Service Worker)
+
 npm run dev                      # API Express (porta 3030)
 (cd webapp && npm run dev -- --host 0.0.0.0 --port ${WEBAPP_PORT:-5173})
 ```
@@ -43,7 +44,6 @@ SESSION_SECRET=troque-isto
 # Ajuste se quiser alterar o intervalo de replay no front (ms)
 # VITE_OUTBOX_POLL_INTERVAL=1500
 ```
-
 ## Endpoints principais (`server/server-pro.cjs`)
 
 - `GET    /api/v1/health` — status básico da API.

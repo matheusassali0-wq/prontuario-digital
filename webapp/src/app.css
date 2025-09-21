@@ -685,6 +685,7 @@ a {
   padding: 8px;
 }
 
+
 .chip-input input:focus {
   outline: none;
 }
@@ -843,6 +844,7 @@ a {
 }
 
 
+
 @media (max-width: 1400px) {
   .patient-content {
     grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
@@ -918,7 +920,6 @@ a {
   flex-wrap: wrap;
   gap: 12px;
 }
-
 .prontuario-columns {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 320px;
@@ -953,7 +954,6 @@ a {
   flex-direction: column;
   gap: 12px;
 }
-
 .encounter-item {
   width: 100%;
   text-align: left;
