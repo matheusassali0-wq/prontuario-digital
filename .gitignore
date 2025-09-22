@@ -1,9 +1,4 @@
 **/node_modules/
-# Next.js coverage artifacts accidentally generated inside dependency trees
-node_modules/dist/build/.next/
-node_modules/dist/build/.next/coverage/
-webapp/node_modules/dist/build/.next/
-webapp/node_modules/dist/build/.next/coverage/
 dist/
 build/
 out/
@@ -38,6 +33,7 @@ logs/
 
 exports/**
 !exports/README.md
+uploads/**
 
 certs/**
 !certs/README.md
@@ -51,8 +47,6 @@ data/**
 !data/*.schema.json
 !data/*.example.json
 
-server/uploads/
-uploads/**
 webapp/node_modules/
 webapp/coverage/
 webapp/dist/

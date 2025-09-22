@@ -21,7 +21,7 @@ npm ci --include=dev
 npx prisma migrate deploy
 npx prisma generate
 
-# Rode os servidores
+# Rode os servidores (API habilita idempotência + export LGPD; webapp registra Service Worker)
 npm run dev                      # API Express (porta 3030)
 (cd webapp && npm run dev -- --host 0.0.0.0 --port ${WEBAPP_PORT:-5173})
 ```
@@ -29,6 +29,20 @@ npm run dev                      # API Express (porta 3030)
 > **Importante:** este repositório ainda contém `node_modules/` commitados a partir do Windows.
 > Em WSL2/Linux, execute `rm -rf node_modules webapp/node_modules && npm ci --include=dev && (cd webapp && npm ci --include=dev)`
 > caso encontre erros `vite: Permission denied` ou binários faltantes.
+
+### Variáveis de ambiente relevantes (SSO / Prescrições / Offline)
+
+```
+MEMED_MODE=print                 # use sso_birdid quando configurar o Bird ID
+BIRDID_ISSUER=https://birdid.example.com
+BIRDID_CLIENT_ID=birdid-client-id
+BIRDID_REDIRECT_URI=http://localhost:3030/auth/callback
+MEMED_SSO_URL=https://app.memed.com.br/sso
+MEMED_RETURN_URL=http://localhost:5173/prescricoes
+SESSION_SECRET=troque-isto
+# Ajuste se quiser alterar o intervalo de replay no front (ms)
+# VITE_OUTBOX_POLL_INTERVAL=1500
+```
 
 ## Endpoints principais (`server/server-pro.cjs`)
 
@@ -40,6 +54,7 @@ npm run dev                      # API Express (porta 3030)
 - `PUT    /api/v1/patients/:id` — atualização completa.
 - `DELETE /api/v1/patients/:id` — remoção lógica (com eventos/auditoria).
 - `GET    /api/v1/patients/:id/events` — timeline 360° (cadeia WORM).
+- `GET    /api/pacientes/:id/export` — exporta JSON LGPD (paciente + evoluções + prescrições).
 - `POST   /api/v1/encounters` — registra encontro clínico (INITIAL/FOLLOW_UP).
 - `GET    /api/v1/encounters?patient_id=` — lista encontros com nota mais recente.
 - `GET    /api/v1/encounters/:id` — detalhes do encontro + notas/versões.
@@ -64,6 +79,17 @@ npm run dev                      # API Express (porta 3030)
   - Command Palette (Ctrl/Cmd+K) com atalhos para nova evolução, anexar e imprimir.
   - Timeline 360° atualizada em tempo real (ENCOUNTER/NOTE_CREATE/NOTE_UPDATE/ATTACHMENT).
   - Rota dedicada `/prontuarios/imprimir/:noteId` com layout print-friendly (A4, cabeçalho Dr. Matheus).
+- Indicador de conectividade na topbar (online/offline) com contador de pendências e botão “Sincronizar agora”.
+- Service Worker (`public/sw.js`) com cache estático + stale-while-revalidate para `GET /api/**` e fallback `offline.html`.
+- Fila Outbox (IndexedDB) intercepta `fetch` de mutações, gera IDs clientes (`cid-*`) e reenvia com `X-Idempotency-Key`.
+
+## Offline-first & Idempotência (PR9)
+
+- Interceptor `offline/fetchInterceptor.ts` adiciona `X-Idempotency-Key` e, quando offline ou em erro de rede, enfileira mutações no IndexedDB.
+- Worker `offline/sync.ts` processa lotes (backoff 2s → 16s), sincroniza automaticamente ao voltar a conexão e mantém mapa `cid → serverId`.
+- API (`server/server-pro.mjs`) persiste dedupe em `data/idempotency.json`, responde replays sem duplicar timeline e registra auditoria WORM (`hashPrev` + SHA-256).
+- Export LGPD disponível em `/api/pacientes/:id/export`, com auditoria `EXPORT_PATIENT_JSON` sem PII adicional.
+- Banner “Modo offline” e pill “Sincronizar” exibem estado em tempo real; pending count refletido via Zustand.
 
 ## Auditoria e timeline
 

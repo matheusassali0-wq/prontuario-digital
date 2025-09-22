@@ -13,8 +13,6 @@ const browserGlobals = {
   JSX: 'readonly',
 };
 
-const targetFiles = ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'];
-
 export default [
   {
     ignores: [
@@ -29,7 +27,7 @@ export default [
   },
   {
     ...js.configs.recommended,
-    files: targetFiles,
+    files: ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -42,7 +40,7 @@ export default [
   },
   ...tsRecommended.map((config) => ({
     ...config,
-    files: targetFiles,
+    files: ['src/pages/Pacientes.tsx', 'src/stores/patientStore.ts'],
     languageOptions: {
       ...(config.languageOptions ?? {}),
       globals: {
