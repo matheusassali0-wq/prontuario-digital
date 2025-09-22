@@ -6,6 +6,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
     "build": "tsc -p . --noEmit",
+    "test": "node --test tests",
     "format": "prettier -c .",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",

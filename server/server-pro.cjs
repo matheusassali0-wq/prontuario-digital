@@ -1,3 +1,4 @@
+/* eslint-env node */
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -10,6 +11,18 @@ const fsPromises = require('fs/promises');
 const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
+const {
+  normalizeRole,
+  roleAtLeast,
+  encryptSecret,
+  validateSettingPayload,
+  validateSecretPayload,
+  validateFeatureFlagPayload,
+  filterSettingsForRole,
+  compareSettings,
+  maskSecretPreview,
+  SECRET_SCHEMAS,
+} = require('./settings-service.cjs');
 
 const prisma = new PrismaClient();
 const uploadsBaseDir = path.resolve(__dirname, 'uploads');
@@ -66,16 +79,197 @@ const saveAttachmentFile = async ({ patientId, noteId, originalName, buffer, mim
 
 const resolveAttachmentPath = (relativePath) => path.resolve(uploadsBaseDir, relativePath);
 
+const SENSITIVE_KEYS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'password',
+  'client_secret',
+  'id_token',
+  'access_token',
+]);
+
+const redactSensitive = (value) => {
+  if (typeof value === 'string') {
+    return '***REDACTED***';
+  }
+  if (Buffer.isBuffer(value)) {
+    return '<redacted-buffer>';
+  }
+  if (value && typeof value === 'object') {
+    return '<redacted-object>';
+  }
+  return '<redacted>';
+};
+
+const sanitizeLogPayload = (payload) => {
+  if (!payload || typeof payload === 'number' || typeof payload === 'boolean') {
+    return payload;
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  if (payload instanceof Error) {
+    return payload.stack ?? payload.message;
+  }
+  if (Array.isArray(payload)) {
+    return payload.map((item) => sanitizeLogPayload(item));
+  }
+  if (typeof payload === 'object') {
+    return Object.fromEntries(
+      Object.entries(payload).map(([key, value]) => {
+        if (SENSITIVE_KEYS.has(key.toLowerCase())) {
+          return [key, redactSensitive(value)];
+        }
+        return [key, sanitizeLogPayload(value)];
+      }),
+    );
+  }
+  return payload;
+};
+
+const formatLogMessage = (message) => {
+  const sanitized = sanitizeLogPayload(message);
+  if (sanitized === undefined || sanitized === null) {
+    return '';
+  }
+  if (typeof sanitized === 'string') {
+    return sanitized;
+  }
+  try {
+    return JSON.stringify(sanitized);
+  } catch {
+    return String(sanitized);
+  }
+};
+
 const writeInfo = (message) => {
-  if (message) {
-    process.stdout.write(`${message}\n`);
+  const formatted = formatLogMessage(message);
+  if (formatted) {
+    process.stdout.write(`${formatted}\n`);
   }
 };
 
 const writeError = (error) => {
-  const output =
-    error instanceof Error ? error.stack ?? error.message : typeof error === 'string' ? error : JSON.stringify(error);
-  process.stderr.write(`${output}\n`);
+  const formatted = formatLogMessage(error);
+  if (formatted) {
+    process.stderr.write(`${formatted}\n`);
+  }
+};
+
+const isProduction = process.env.NODE_ENV === 'production';
+
+const parseOrigin = (input) => {
+  if (!input) return null;
+  try {
+    const url = new URL(input);
+    return url.origin;
+  } catch {
+    return null;
+  }
+};
+
+const buildCspDirectives = () => {
+  const directives = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'"],
+    "style-src": ["'self'"],
+    "img-src": ["'self'", 'data:'],
+    "connect-src": ["'self'"],
+    "frame-ancestors": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+    "upgrade-insecure-requests": [],
+  };
+
+  const birdIdOrigin = parseOrigin(process.env.BIRDID_ISSUER);
+  const memedSsoOrigin = parseOrigin(process.env.MEMED_SSO_URL);
+  if (birdIdOrigin) {
+    directives['connect-src'].push(birdIdOrigin);
+  }
+  if (memedSsoOrigin) {
+    directives['connect-src'].push(memedSsoOrigin);
+    directives['form-action'].push(memedSsoOrigin);
+  }
+  if (!isProduction) {
+    directives['style-src'].push("'unsafe-inline'");
+    directives['connect-src'].push('ws:');
+  }
+  return directives;
+};
+
+const parseCookies = (headerValue) => {
+  if (!headerValue || typeof headerValue !== 'string') {
+    return {};
+  }
+  return headerValue.split(';').reduce((acc, pair) => {
+    const [name, ...rest] = pair.split('=');
+    if (!name) return acc;
+    const key = name.trim();
+    const value = rest.join('=').trim();
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+};
+
+const appendCookie = (res, cookie) => {
+  const existing = res.getHeader('Set-Cookie');
+  if (!existing) {
+    res.setHeader('Set-Cookie', cookie);
+    return;
+  }
+  if (Array.isArray(existing)) {
+    res.setHeader('Set-Cookie', [...existing, cookie]);
+    return;
+  }
+  res.setHeader('Set-Cookie', [existing, cookie]);
+};
+
+const setCookie = (res, name, value, { secure = false, sameSite = 'Strict', httpOnly = false, path: cookiePath = '/', maxAge } = {}) => {
+  const segments = [`${name}=${encodeURIComponent(value)}`, `Path=${cookiePath}`, `SameSite=${sameSite}`];
+  if (httpOnly) {
+    segments.push('HttpOnly');
+  }
+  if (secure) {
+    segments.push('Secure');
+  }
+  if (typeof maxAge === 'number') {
+    segments.push(`Max-Age=${maxAge}`);
+  }
+  appendCookie(res, segments.join('; '));
+};
+
+const CSRF_COOKIE_NAME = 'csrf';
+
+const requireCsrf = (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  const cookies = parseCookies(req.headers?.cookie);
+  const cookieToken = cookies[CSRF_COOKIE_NAME];
+  const headerToken = req.header('x-csrf-token');
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    return res.status(403).json({
+      type: 'about:blank',
+      title: 'CSRF token inválido',
+      status: 403,
+      detail: 'Revalide o formulário antes de enviar novamente.',
+    });
+  }
+  return next();
+};
+
+const requireRole = (role) => (req, res, next) => {
+  const currentRole = req.user?.role ?? 'Atendimento';
+  if (!roleAtLeast(currentRole, role)) {
+    return res.status(403).json({
+      type: 'about:blank',
+      title: 'Acesso negado',
+      status: 403,
+      detail: `Requer perfil ${role}.`,
+    });
+  }
+  return next();
 };
 
 const app = express();
@@ -84,15 +278,35 @@ app.disable('x-powered-by');
 ensureDirectory(uploadsBaseDir).catch(() => undefined);
 
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 120,
+  windowMs: 10 * 60 * 1000,
+  limit: 300,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userId = req.header('x-user-id') ?? 'anon';
+    return `${req.ip}:${userId}`;
+  },
 });
+
+const sensitiveLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 50,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userId = req.header('x-user-id') ?? 'anon';
+    return `${req.ip}:${userId}`;
+  },
+});
+
+const appBaseOrigin = parseOrigin(process.env.APP_BASE_URL || 'http://localhost:5173');
 
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: buildCspDirectives(),
+    },
     crossOriginResourcePolicy: { policy: 'same-origin' },
   }),
 );
@@ -100,6 +314,31 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
 app.use(apiLimiter);
+app.use((req, res, next) => {
+  const roleHeader = req.header('x-user-role');
+  req.user = {
+    id: req.header('x-user-id') ?? null,
+    role: normalizeRole(roleHeader),
+  };
+  res.locals.user = req.user;
+  next();
+});
+
+app.use((req, res, next) => {
+  const cookies = parseCookies(req.headers?.cookie);
+  let token = cookies[CSRF_COOKIE_NAME];
+  if (!token) {
+    token = crypto.randomBytes(16).toString('hex');
+    setCookie(res, CSRF_COOKIE_NAME, token, {
+      secure: isProduction,
+      sameSite: 'Strict',
+      httpOnly: false,
+      maxAge: 60 * 60,
+    });
+  }
+  req.csrfToken = token;
+  next();
+});
 
 const PATIENT_PAGE_SIZE_DEFAULT = 15;
 
@@ -215,6 +454,38 @@ const noteUpdateSchema = z
   })
   .strict();
 
+const settingBodySchema = z
+  .object({
+    value: z.any(),
+  })
+  .strict();
+
+const secretBodySchema = z
+  .object({
+    value: z.string().trim().min(1, 'Valor obrigatório'),
+  })
+  .strict();
+
+const flagBodySchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict();
+
+const settingsImportSchema = z
+  .object({
+    settings: z.record(z.any()).default({}),
+    flags: z.record(z.boolean()).optional(),
+  })
+  .strict();
+
+const ssoTestSchema = z
+  .object({
+    issuer: z.string().trim().url().max(255),
+    redirectUri: z.string().trim().url().max(255),
+  })
+  .strict();
+
 const querySchema = z
   .object({
     query: z.string().trim().optional(),
@@ -252,22 +523,44 @@ const computeHash = (payload) =>
 const appendAuditLog = async ({ who, what, meta }) => {
   const lastLog = await prisma.auditLog.findFirst({
     orderBy: { when: 'desc' },
-    select: { meta: true },
+    select: { who: true, what: true, when: true, meta: true, hashPrev: true },
   });
-  const previousHash = typeof lastLog?.meta?.hash === 'string' ? lastLog.meta.hash : null;
+  let previousHash = null;
+  if (lastLog) {
+    if (typeof lastLog.meta?.chainHash === 'string') {
+      previousHash = lastLog.meta.chainHash;
+    } else {
+      previousHash = computeHash({
+        who: lastLog.who ?? null,
+        what: lastLog.what,
+        when: lastLog.when?.toISOString?.() ?? new Date(lastLog.when).toISOString(),
+        hashPrev: lastLog.hashPrev ?? null,
+        meta: lastLog.meta ?? {},
+      });
+    }
+  }
+
+  const when = new Date();
   const baseEntry = {
     who: who ?? null,
     what,
-    when: new Date(),
+    when,
     hashPrev: previousHash,
     meta: meta ?? {},
   };
-  const currentHash = computeHash({ ...baseEntry, meta: meta ?? {}, hashPrev: previousHash });
-  const entryWithHash = {
-    ...baseEntry,
-    meta: { ...(meta ?? {}), hash: currentHash },
-  };
-  return prisma.auditLog.create({ data: entryWithHash });
+  const chainHash = computeHash({
+    who: baseEntry.who,
+    what: baseEntry.what,
+    when: when.toISOString(),
+    hashPrev: previousHash,
+    meta: baseEntry.meta,
+  });
+  return prisma.auditLog.create({
+    data: {
+      ...baseEntry,
+      meta: { ...baseEntry.meta, chainHash },
+    },
+  });
 };
 
 const appendEvent = async (patientId, type, payload) => {
@@ -987,6 +1280,398 @@ app.get(
     res.setHeader('Content-Type', attachment.mime);
     res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
     fs.createReadStream(absolutePath).pipe(res);
+  }),
+);
+
+app.get(
+  '/api/v1/settings',
+  asyncHandler(async (req, res) => {
+    const role = req.user?.role ?? 'Atendimento';
+    const records = await prisma.setting.findMany({
+      where: { isSecret: false },
+      orderBy: { key: 'asc' },
+    });
+    const filtered = filterSettingsForRole(records, role);
+    const items = filtered.map((record) => ({
+      key: record.key,
+      value: record.value ?? null,
+      updatedAt: record.updatedAt.toISOString(),
+    }));
+    res.json({ items, role });
+  }),
+);
+
+app.put(
+  '/api/v1/settings/:key',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const key = req.params.key.trim();
+    if (SECRET_SCHEMAS?.[key]) {
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Configuração secreta',
+        status: 400,
+        detail: 'Utilize o endpoint de segredos para atualizar este valor.',
+      });
+    }
+    const payload = settingBodySchema.parse(req.body ?? {});
+    let value;
+    try {
+      value = validateSettingPayload(key, payload.value);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw error;
+      }
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Configuração inválida',
+        status: 400,
+        detail: error.message,
+      });
+    }
+    const updated = await prisma.setting.upsert({
+      where: { key },
+      update: { value, isSecret: false },
+      create: { key, value, isSecret: false },
+    });
+    await appendAuditLog({
+      who: req.user?.id ?? null,
+      what: 'SETTING_UPDATE',
+      meta: { key },
+    });
+    res.json({
+      setting: {
+        key: updated.key,
+        value: updated.value ?? null,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  }),
+);
+
+app.get(
+  '/api/v1/secrets/:key/meta',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const key = req.params.key.trim();
+    const secret = await prisma.apiSecret.findUnique({ where: { key } });
+    const audit = await prisma.auditLog.findFirst({
+      where: {
+        what: 'SECRET_ROTATE',
+        meta: {
+          path: ['key'],
+          equals: key,
+        },
+      },
+      orderBy: { when: 'desc' },
+    });
+    res.json({
+      key,
+      hasValue: Boolean(secret),
+      updatedAt: secret?.updatedAt?.toISOString() ?? null,
+      lastChangedBy: audit?.who ?? null,
+      lastChangedAt: audit?.when?.toISOString?.() ?? (audit?.when ? new Date(audit.when).toISOString() : null),
+    });
+  }),
+);
+
+app.put(
+  '/api/v1/secrets/:key',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const key = req.params.key.trim();
+    const payload = secretBodySchema.parse(req.body ?? {});
+    let secretValue;
+    try {
+      secretValue = validateSecretPayload(key, payload.value);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw error;
+      }
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Segredo inválido',
+        status: 400,
+        detail: error.message,
+      });
+    }
+    const { nonce, payload: cipherPayload } = encryptSecret(secretValue);
+    const updated = await prisma.apiSecret.upsert({
+      where: { key },
+      update: { cipher: cipherPayload, nonce },
+      create: { key, cipher: cipherPayload, nonce },
+    });
+    await prisma.setting.upsert({
+      where: { key },
+      update: { value: { masked: maskSecretPreview(secretValue) }, isSecret: true },
+      create: { key, value: { masked: maskSecretPreview(secretValue) }, isSecret: true },
+    });
+    await appendAuditLog({
+      who: req.user?.id ?? null,
+      what: 'SECRET_ROTATE',
+      meta: { key },
+    });
+    res.json({
+      key,
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  }),
+);
+
+app.get(
+  '/api/v1/flags',
+  requireRole('Medico'),
+  asyncHandler(async (req, res) => {
+    const flags = await prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
+    res.json({
+      items: flags.map((flag) => ({
+        key: flag.key,
+        enabled: flag.enabled,
+        updatedAt: flag.updatedAt.toISOString(),
+      })),
+    });
+  }),
+);
+
+app.put(
+  '/api/v1/flags/:key',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const key = req.params.key.trim();
+    const payload = flagBodySchema.parse(req.body ?? {});
+    const enabled = validateFeatureFlagPayload(payload.enabled);
+    const updated = await prisma.featureFlag.upsert({
+      where: { key },
+      update: { enabled },
+      create: { key, enabled },
+    });
+    await appendAuditLog({
+      who: req.user?.id ?? null,
+      what: 'FLAG_UPDATE',
+      meta: { key },
+    });
+    res.json({
+      flag: {
+        key: updated.key,
+        enabled: updated.enabled,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+    });
+  }),
+);
+
+app.post(
+  '/api/v1/settings/test/sso-birdid',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const payload = ssoTestSchema.parse(req.body ?? {});
+    const normalizedIssuer = payload.issuer.replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let discovery;
+    try {
+      const response = await fetch(`${normalizedIssuer}/.well-known/openid-configuration`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        return res.status(502).json({
+          type: 'about:blank',
+          title: 'Falha na descoberta OIDC',
+          status: 502,
+          detail: `Resposta ${response.status} do provedor`,
+        });
+      }
+      discovery = await response.json();
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return res.status(504).json({
+          type: 'about:blank',
+          title: 'Tempo excedido',
+          status: 504,
+          detail: 'Discovery OIDC excedeu o tempo limite (8s).',
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const authorizationEndpoint = discovery.authorization_endpoint;
+    if (!authorizationEndpoint) {
+      return res.status(502).json({
+        type: 'about:blank',
+        title: 'Discovery incompleta',
+        status: 502,
+        detail: 'authorization_endpoint ausente no documento.',
+      });
+    }
+
+    let redirect;
+    try {
+      redirect = new URL(payload.redirectUri);
+    } catch {
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Redirect inválido',
+        status: 400,
+        detail: 'Informe uma URL de retorno válida.',
+      });
+    }
+
+    if (appBaseOrigin && redirect.origin !== appBaseOrigin) {
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Redirect não autorizado',
+        status: 400,
+        detail: `Redirect deve utilizar ${appBaseOrigin}.`,
+      });
+    }
+
+    res.json({
+      ok: true,
+      issuer: discovery.issuer ?? normalizedIssuer,
+      authorizationEndpoint,
+      tokenEndpoint: discovery.token_endpoint ?? null,
+      supportsPkce: Array.isArray(discovery.code_challenge_methods_supported)
+        ? discovery.code_challenge_methods_supported.includes('S256')
+        : false,
+      redirect: redirect.href,
+    });
+  }),
+);
+
+app.post(
+  '/api/v1/settings/export',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const records = await prisma.setting.findMany({
+      where: { isSecret: false },
+      orderBy: { key: 'asc' },
+    });
+    const flags = await prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
+    res.json({
+      generatedAt: new Date().toISOString(),
+      settings: Object.fromEntries(records.map((record) => [record.key, record.value ?? null])),
+      featureFlags: Object.fromEntries(flags.map((flag) => [flag.key, flag.enabled])),
+    });
+  }),
+);
+
+app.post(
+  '/api/v1/settings/import',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  requireCsrf,
+  asyncHandler(async (req, res) => {
+    const dryRun = req.query?.dryRun !== '0';
+    const payload = settingsImportSchema.parse(req.body ?? {});
+    const incomingSettings = {};
+    const invalidKeys = [];
+    for (const [key, rawValue] of Object.entries(payload.settings ?? {})) {
+      if (SECRET_SCHEMAS?.[key]) {
+        invalidKeys.push(key);
+        continue;
+      }
+      try {
+        incomingSettings[key] = validateSettingPayload(key, rawValue);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          throw error;
+        }
+        invalidKeys.push(key);
+      }
+    }
+    if (invalidKeys.length) {
+      return res.status(400).json({
+        type: 'about:blank',
+        title: 'Configurações inválidas',
+        status: 400,
+        detail: `Revise as chaves: ${invalidKeys.join(', ')}`,
+      });
+    }
+    const existingSettings = await prisma.setting.findMany({
+      where: {
+        key: {
+          in: Object.keys(incomingSettings),
+        },
+        isSecret: false,
+      },
+    });
+    const currentMap = Object.fromEntries(existingSettings.map((item) => [item.key, item.value ?? null]));
+    const deltas = compareSettings(currentMap, incomingSettings);
+
+    const flagChanges = Object.entries(payload.flags ?? {}).map(([key, enabled]) => ({
+      key,
+      enabled: validateFeatureFlagPayload(enabled),
+    }));
+
+    if (dryRun) {
+      return res.json({
+        dryRun: true,
+        applied: false,
+        changes: deltas,
+        featureFlags: flagChanges,
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await Promise.all(
+        deltas.map((delta) =>
+          tx.setting.upsert({
+            where: { key: delta.key },
+            update: { value: incomingSettings[delta.key], isSecret: false },
+            create: { key: delta.key, value: incomingSettings[delta.key], isSecret: false },
+          }),
+        ),
+      );
+      await Promise.all(
+        flagChanges.map((flag) =>
+          tx.featureFlag.upsert({
+            where: { key: flag.key },
+            update: { enabled: flag.enabled },
+            create: { key: flag.key, enabled: flag.enabled },
+          }),
+        ),
+      );
+    });
+
+    await Promise.all(
+      deltas.map((delta) =>
+        appendAuditLog({
+          who: req.user?.id ?? null,
+          what: 'SETTING_UPDATE',
+          meta: { key: delta.key },
+        }),
+      ),
+    );
+    await Promise.all(
+      flagChanges.map((flag) =>
+        appendAuditLog({
+          who: req.user?.id ?? null,
+          what: 'FLAG_UPDATE',
+          meta: { key: flag.key },
+        }),
+      ),
+    );
+
+    res.json({
+      dryRun: false,
+      applied: true,
+      changes: deltas,
+      featureFlags: flagChanges,
+    });
   }),
 );
 
