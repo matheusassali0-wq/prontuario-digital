@@ -1,25 +1,7 @@
+import type { PrescriptionItem, PrescriptionRecord, PrescriptionCreateInput } from '../../../contracts/src/prescriptions';
 const API_BASE = 'http://127.0.0.1:3030/api';
 
-type PrescriptionItem = {
-  nome: string;
-  dose?: string;
-  via?: string;
-  horario?: string;
-  observacao?: string;
-};
-
-type PrescriptionRecord = {
-  id: string;
-  numero: number;
-  pacienteId: string;
-  pacienteNome: string;
-  cid: string | null;
-  observacoes: string | null;
-  formato: string;
-  itens: (PrescriptionItem & { ordem: number })[];
-  criadoEm: string;
-  tipo: string;
-};
+// Types now sourced from shared contracts (@contracts)
 
 type StatusPayload = {
   ok: boolean;
@@ -74,7 +56,7 @@ export const listPrescriptions = async (patientId: string): Promise<Prescription
 
 export const printPrescription = async (input: {
   patientId: string;
-  formato: 'A4' | 'A5';
+  formato: PrescriptionCreateInput['formato'];
   cid?: string;
   observacoes?: string;
   items: PrescriptionItem[];

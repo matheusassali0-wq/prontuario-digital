@@ -1,15 +1,36 @@
 {
   "name": "prontuario",
   "private": true,
+  "version": "1.0.0",
+  "description": "**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.",
+  "type": "module",
+  "main": "app.js",
   "scripts": {
     "dev": "node ./server/server-pro.cjs",
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
     "build": "tsc -p . --noEmit",
     "format": "prettier -c .",
+    "contracts:build": "npm --prefix contracts run build",
+    "webapp:dev": "npm --prefix webapp run dev",
+    "webapp:build": "npm --prefix webapp run build",
+    "webapp:preview": "npm --prefix webapp run preview",
+    "webapp:lint": "npm --prefix webapp run lint",
+    "webapp:typecheck": "npm --prefix webapp run typecheck",
+    "reset:demo-files": "node ./scripts/reset-demo.mjs",
+    "reset:db": "node ./scripts/wipe-db.mjs",
+    "reset:all": "npm run reset:demo-files && npm run reset:db",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:migrate:dev": "prisma migrate dev"
+    "prisma:migrate:dev": "prisma migrate dev",
+    "start:prod": "npm run contracts:build && npm run webapp:build && npm run prisma:migrate && node ./server/server-pro.cjs",
+    "smoke:e2e": "node ./scripts/smoke-e2e.mjs",
+    "test:contracts": "node ./scripts/test-contracts.mjs",
+    "test:idempotency": "node ./scripts/test-idempotency.mjs",
+    "test:sequence": "node ./scripts/test-sequence.mjs",
+    "dev:up": "node ./scripts/doctor-env.mjs && docker compose up -d db && npm install && npm --prefix webapp install && npm run contracts:build && npm run prisma:migrate && npm run dev",
+    "dev:down": "docker compose down",
+    "dev:repair": "docker compose up -d db && (npm ci || npm install) && (npm --prefix webapp ci || npm --prefix webapp install) && npm run contracts:build && npm run prisma:generate && npm run prisma:migrate"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -18,28 +39,14 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "hash-wasm": "^4.12.0",
-    "multer": "^1.4.5-lts.2",
     "helmet": "^7.2.0",
+    "multer": "^1.4.5-lts.2",
     "pg": "^8.13.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
     "zod": "^3.24.1"
   },
-  "version": "1.0.0",
-  "description": "**Conte\u00fado:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (\u00edndice HMAC n\u2011gram)** e **rate limit**.",
-  "main": "app.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://YOUR_TOKEN@github.com/MatheusAssali/prontuario-digital.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/MatheusAssali/prontuario-digital/issues"
-  },
-  "homepage": "https://github.com/MatheusAssali/prontuario-digital#readme",
   "devDependencies": {
     "@eslint/js": "^9.35.0",
     "@types/react": "^19.1.13",
@@ -52,5 +59,13 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0"
   },
-  "type": "module"
+  "repository": {
+    "type": "git",
+    "url": "git+https://YOUR_TOKEN@github.com/MatheusAssali/prontuario-digital.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatheusAssali/prontuario-digital/issues"
+  },
+  "homepage": "https://github.com/MatheusAssali/prontuario-digital#readme",
+  "license": "ISC"
 }

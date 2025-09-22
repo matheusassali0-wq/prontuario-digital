@@ -109,3 +109,22 @@ A timeline apresenta agrupamento por dia com ícones contextuais (cadastro, evol
 - Seeds/fixtures não são versionados; utilize scripts locais conforme necessidade.
 - A limpeza pesada dos diretórios `node_modules/`, `dist/`, `exports/`, `data/` e `certs/` será coordenada via issue dedicada.
 - Timezone padrão GMT-3 (America/Sao_Paulo) para métricas e timeline.
+
+## Testes rápidos e ciclo de desenvolvimento
+
+Testes:
+
+- Testes de contratos (Zod runtime): npm run test:contracts
+- Teste de idempotência (replay do mesmo corpo): npm run test:idempotency
+- Teste de sequência (números de prescrição crescentes): npm run test:sequence
+
+Pré‑requisitos:
+
+- Postgres ativo (docker compose up -d db) e .env configurado.
+- Servidor em execução em http://127.0.0.1:3030 (npm run dev ou npm run start:prod).
+
+Ciclo dev:
+
+- Subir ambiente e iniciar servidor: npm run dev:up
+- Encerrar containers: npm run dev:down
+- Reparar dependências e Prisma: npm run dev:repair
