@@ -212,7 +212,12 @@ export default function Prescricoes() {
         <article className="card">
           <h2>Nova prescrição impressa</h2>
           <p>Preencha os itens abaixo para gerar a receita com numeração sequencial oficial.</p>
-          <form className="prescription-form" onSubmit={handlePrint}>
+            <form
+              className="prescription-form"
+              onSubmit={(event) => {
+                void handlePrint(event);
+              }}
+            >
             <div className="field-grid">
               <label>
                 Formato

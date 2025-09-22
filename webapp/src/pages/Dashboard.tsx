@@ -1,3 +1,12 @@
+import { useEffect, useState } from 'react';
+import { formatDateTimeBr } from '../utils/datetime';
+
+type BirdStatus = {
+  status: 'online' | 'offline' | 'unknown';
+  detail: string;
+  checkedAt: string | null;
+};
+
 const metrics = [
   { label: 'Total de pacientes', value: '128', footnote: 'Última atualização às 08:15' },
   { label: 'Consultas hoje', value: '12', footnote: '3 em andamento agora' },
@@ -20,7 +29,52 @@ const quickActions = [
   },
 ];
 
+const readBirdStatus = (): BirdStatus => {
+  if (typeof window === 'undefined') {
+    return { status: 'unknown', detail: '', checkedAt: null };
+  }
+  const raw = window.localStorage.getItem('pd-birdid-status');
+  if (!raw) {
+    return { status: 'unknown', detail: '', checkedAt: null };
+  }
+  try {
+    const parsed = JSON.parse(raw) as { status?: 'online' | 'offline'; detail?: string; checkedAt?: string };
+    if (parsed.status === 'online' || parsed.status === 'offline') {
+      return {
+        status: parsed.status,
+        detail: parsed.detail ?? '',
+        checkedAt: parsed.checkedAt ?? null,
+      };
+    }
+  } catch {
+    /* ignora parse inválido */
+  }
+  return { status: 'unknown', detail: '', checkedAt: null };
+};
+
 export default function Dashboard() {
+  const [birdStatus, setBirdStatus] = useState<BirdStatus>(() => readBirdStatus());
+
+  useEffect(() => {
+    const update = () => setBirdStatus(readBirdStatus());
+    update();
+    window.addEventListener('focus', update);
+    window.addEventListener('storage', update);
+    window.addEventListener('bird-status-change', update as EventListener);
+    return () => {
+      window.removeEventListener('focus', update);
+      window.removeEventListener('storage', update);
+      window.removeEventListener('bird-status-change', update as EventListener);
+    };
+  }, []);
+
+  const statusLabel =
+    birdStatus.status === 'online' ? 'Online' : birdStatus.status === 'offline' ? 'Offline' : 'Aguardando teste';
+  const statusClass = `status-indicator ${birdStatus.status}`;
+  const statusFootnote = birdStatus.checkedAt
+    ? `Último teste em ${formatDateTimeBr(birdStatus.checkedAt)}`
+    : 'Execute um teste de SSO nas configurações.';
+
   return (
     <div className="dashboard-view">
       <section className="page-header" aria-labelledby="dashboard-title">
@@ -52,12 +106,12 @@ export default function Dashboard() {
         <article className="status-tile" aria-live="polite">
           <div className="status-header">
             <span>Status Bird ID</span>
-            <span className="status-indicator">
+            <span className={statusClass}>
               <span className="status-dot" aria-hidden="true"></span>
-              Online
+              {statusLabel}
             </span>
           </div>
-          <p className="card-footnote">SSO conectado. Último check às 08:12 (GMT-3).</p>
+          <p className="card-footnote">{statusFootnote}</p>
           <button type="button" className="action-card" style={{ borderStyle: 'solid' }}>
             <span className="action-title">Gerenciar credenciais</span>
             <span className="action-description">Abrir configurações de integração Bird ID.</span>

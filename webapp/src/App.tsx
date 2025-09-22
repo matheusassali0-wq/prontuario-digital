@@ -6,6 +6,8 @@ import Prontuarios from './pages/Prontuarios';
 import ProntuarioPrint from './pages/ProntuarioPrint';
 import Prescricoes from './pages/Prescricoes';
 import Configuracoes from './pages/Configuracoes';
+import LegalTermos from './pages/LegalTermos';
+import LegalPrivacidade from './pages/LegalPrivacidade';
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
         <Route path="prontuarios" element={<Prontuarios />} />
         <Route path="prescricoes" element={<Prescricoes />} />
         <Route path="configuracoes" element={<Configuracoes />} />
+        <Route path="legal/termos" element={<LegalTermos />} />
+        <Route path="legal/privacidade" element={<LegalPrivacidade />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
       <Route path="/prontuarios/imprimir/:noteId" element={<ProntuarioPrint />} />

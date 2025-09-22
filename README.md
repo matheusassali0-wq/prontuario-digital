@@ -22,7 +22,7 @@ npx prisma migrate deploy
 npx prisma generate
 
 # Rode os servidores (API habilita idempotência + export LGPD; webapp registra Service Worker)
-npm run dev                      # API Express (porta 3030)
+npm run dev                      # API Express (porta ${PORT:-8080})
 (cd webapp && npm run dev -- --host 0.0.0.0 --port ${WEBAPP_PORT:-5173})
 ```
 
@@ -33,13 +33,15 @@ npm run dev                      # API Express (porta 3030)
 ### Variáveis de ambiente relevantes (SSO / Prescrições / Offline)
 
 ```
-MEMED_MODE=print                 # use sso_birdid quando configurar o Bird ID
-BIRDID_ISSUER=https://birdid.example.com
-BIRDID_CLIENT_ID=birdid-client-id
-BIRDID_REDIRECT_URI=http://localhost:3030/auth/callback
-MEMED_SSO_URL=https://app.memed.com.br/sso
-MEMED_RETURN_URL=http://localhost:5173/prescricoes
-SESSION_SECRET=troque-isto
+SERVER_ENC_KEY=base64:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+MEMED_MODE=sso_birdid
+BIRDID_ISSUER=https://SEU-ISSUER
+BIRDID_CLIENT_ID=SEU-CLIENT-ID
+BIRDID_REDIRECT_URI=http://localhost:5173/auth/callback
+MEMED_SSO_URL=https://SEU-ENDPOINT-SSO-MEMED
+MEMED_RETURN_URL=http://localhost:5173/prescricoes/retorno
+APP_BASE_URL=http://localhost:5173
+SESSION_SECRET=troque-isto-32chars
 # Ajuste se quiser alterar o intervalo de replay no front (ms)
 # VITE_OUTBOX_POLL_INTERVAL=1500
 ```
@@ -55,6 +57,12 @@ SESSION_SECRET=troque-isto
 - `DELETE /api/v1/patients/:id` — remoção lógica (com eventos/auditoria).
 - `GET    /api/v1/patients/:id/events` — timeline 360° (cadeia WORM).
 - `GET    /api/pacientes/:id/export` — exporta JSON LGPD (paciente + evoluções + prescrições).
+- `GET    /api/v1/settings` — configurações não secretas filtradas por RBAC.
+- `PUT    /api/v1/settings/:key` — atualiza configurações (Admin + CSRF).
+- `GET    /api/v1/secrets/:key/meta` / `GET /api/v1/secrets/:key` / `PUT /api/v1/secrets/:key` — metadados, revelação temporária e rotação AES-256-GCM de segredos.
+- `GET    /api/v1/flags` / `PUT /api/v1/flags/:key` — feature flags versionadas com auditoria.
+- `POST   /api/v1/settings/test/sso-birdid` — valida discovery OIDC (timeout 8s).
+- `POST   /api/v1/settings/export` / `POST /api/v1/settings/import?dryRun=1` — exporta/importa JSON sem segredos.
 - `POST   /api/v1/encounters` — registra encontro clínico (INITIAL/FOLLOW_UP).
 - `GET    /api/v1/encounters?patient_id=` — lista encontros com nota mais recente.
 - `GET    /api/v1/encounters/:id` — detalhes do encontro + notas/versões.
