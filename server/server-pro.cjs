@@ -281,6 +281,7 @@ ensureDirectory(uploadsBaseDir).catch(() => undefined);
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 300,
+
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator: (req) => {
@@ -299,6 +300,7 @@ const sensitiveLimiter = rateLimit({
     return `${req.ip}:${userId}`;
   },
 });
+
 
 const appBaseOrigin = parseOrigin(process.env.APP_BASE_URL || 'http://localhost:5173');
 
