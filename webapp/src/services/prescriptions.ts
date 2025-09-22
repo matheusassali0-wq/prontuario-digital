@@ -1,4 +1,4 @@
-import type { PrescriptionItem, PrescriptionRecord, PrescriptionCreateInput } from '../../../contracts/src/prescriptions';
+import type { PrescriptionItem, PrescriptionRecord, PrescriptionCreateInput } from '@contracts/prescriptions';
 const API_BASE = 'http://127.0.0.1:3030/api';
 
 // Types now sourced from shared contracts (@contracts)

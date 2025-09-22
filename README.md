@@ -128,3 +128,18 @@ Ciclo dev:
 - Subir ambiente e iniciar servidor: npm run dev:up
 - Encerrar containers: npm run dev:down
 - Reparar dependências e Prisma: npm run dev:repair
+
+## PNPM + Corepack e CI
+
+- Ative o Corepack e padronize PNPM localmente:
+  - corepack enable
+  - corepack prepare pnpm@latest --activate
+- Instalação com lockfile travado (CI): pnpm install --frozen-lockfile
+- Cache no CI: use o hash do pnpm-lock.yaml (raiz e webapp/, se aplicável).
+
+Observação: Removidos package-lock.json da raiz e de webapp/ para evitar divergências entre gerenciadores.
+
+## WSL/ext4 e execução segura
+
+- Este projeto espera WSL/Linux em filesystem ext4. Evite trabalhar sob /mnt/c/ (OneDrive/NTFS), pois causa problemas de performance e permissões.
+- Os scripts dev:_ executam um preflight (scripts/doctor-env.mjs) que bloqueia execução fora do WSL/ext4 e em /mnt/_.

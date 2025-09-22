@@ -11,15 +11,19 @@ const multer = require("multer");
 const { PrismaClient } = require("@prisma/client");
 const { URL } = require("url");
 const { z } = require("zod");
-// Import shared contracts (compiled to CommonJS in contracts/dist)
+// Import shared contracts (prefer package scope then dist/src fallback)
 let Contracts;
 try {
-  Contracts = require("../contracts/dist");
+  Contracts = require("@prontuario/contracts");
 } catch {
   try {
-    Contracts = require("../contracts/src");
+    Contracts = require("../contracts/dist");
   } catch {
-    Contracts = {};
+    try {
+      Contracts = require("../contracts/src");
+    } catch {
+      Contracts = {};
+    }
   }
 }
 
@@ -224,14 +228,12 @@ const idempotencyMiddleware = (routeKey) => async (req, res, next) => {
     const existing = await readExisting();
     if (existing) {
       if (existing.hash !== hash) {
-        return res
-          .status(409)
-          .json({
-            type: "about:blank",
-            title: "Idempotência em conflito",
-            status: 409,
-            detail: "Chave já usada para payload diferente.",
-          });
+        return res.status(409).json({
+          type: "about:blank",
+          title: "Idempotência em conflito",
+          status: 409,
+          detail: "Chave já usada para payload diferente.",
+        });
       }
       if (existing.status && existing.body !== undefined) {
         res.status(existing.status);

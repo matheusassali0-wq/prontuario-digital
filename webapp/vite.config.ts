@@ -5,6 +5,12 @@ import path from 'path';
 export default defineConfig({
   base: '/app/',
   plugins: [react()],
-  resolve: { alias: { '@': resolve(__dirname, 'src'), '@contracts': path.resolve(__dirname, '../contracts/src') } },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      // Prefer installed package; during local dev, ts types map to src by tsconfig paths
+      '@contracts': path.resolve(__dirname, '../contracts/src')
+    }
+  },
   build: { outDir: '../public/app', emptyOutDir: true },
 });

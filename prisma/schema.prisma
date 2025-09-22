@@ -21,6 +21,7 @@ model Patient {
   Events       Event[]
   Encounters   Encounter[]
   Prescriptions Prescription[]
+  ExamOrders   ExamOrder[]
 }
 
 model Event {
@@ -111,4 +112,19 @@ model Prescription {
   patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId, createdAt])
+  @@index([patientId, number])
+  @@unique([patientId, number])
+}
+
+model ExamOrder {
+  id         String   @id @default(cuid())
+  number     Int      @unique @default(dbgenerated("nextval('exam_order_seq')"))
+  patientId  String
+  description String?
+  createdAt  DateTime @default(now())
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@index([patientId, number])
+  @@unique([patientId, number])
 }
