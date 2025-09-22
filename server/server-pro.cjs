@@ -15,6 +15,7 @@ const {
   normalizeRole,
   roleAtLeast,
   encryptSecret,
+  decryptSecret,
   validateSettingPayload,
   validateSecretPayload,
   validateFeatureFlagPayload,
@@ -280,6 +281,7 @@ ensureDirectory(uploadsBaseDir).catch(() => undefined);
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 300,
+
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   keyGenerator: (req) => {
@@ -298,6 +300,7 @@ const sensitiveLimiter = rateLimit({
     return `${req.ip}:${userId}`;
   },
 });
+
 
 const appBaseOrigin = parseOrigin(process.env.APP_BASE_URL || 'http://localhost:5173');
 
@@ -1358,6 +1361,7 @@ app.get(
   asyncHandler(async (req, res) => {
     const key = req.params.key.trim();
     const secret = await prisma.apiSecret.findUnique({ where: { key } });
+    const secretSetting = await prisma.setting.findUnique({ where: { key } });
     const audit = await prisma.auditLog.findFirst({
       where: {
         what: 'SECRET_ROTATE',
@@ -1371,9 +1375,37 @@ app.get(
     res.json({
       key,
       hasValue: Boolean(secret),
+      maskedPreview:
+        secretSetting?.value && typeof secretSetting.value === 'object'
+          ? secretSetting.value.masked ?? null
+          : null,
       updatedAt: secret?.updatedAt?.toISOString() ?? null,
       lastChangedBy: audit?.who ?? null,
       lastChangedAt: audit?.when?.toISOString?.() ?? (audit?.when ? new Date(audit.when).toISOString() : null),
+    });
+  }),
+);
+
+app.get(
+  '/api/v1/secrets/:key',
+  sensitiveLimiter,
+  requireRole('Admin'),
+  asyncHandler(async (req, res) => {
+    const key = req.params.key.trim();
+    const secret = await prisma.apiSecret.findUnique({ where: { key } });
+    if (!secret) {
+      return res.status(404).json({
+        type: 'about:blank',
+        title: 'Segredo não encontrado',
+        status: 404,
+        detail: `Segredo ${key} inexistente.`,
+      });
+    }
+    const value = decryptSecret(secret.cipher, secret.nonce);
+    res.json({
+      key,
+      value,
+      updatedAt: secret.updatedAt.toISOString(),
     });
   }),
 );

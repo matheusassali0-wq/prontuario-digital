@@ -9,6 +9,7 @@ const {
   validateSecretPayload,
   filterSettingsForRole,
   normalizeRole,
+  maskSecretPreview,
 } = settingsService.default ?? settingsService;
 
 test('AES-256-GCM round-trip mantém o valor original', () => {
@@ -58,4 +59,9 @@ test('filterSettingsForRole restringe chaves por RBAC', () => {
 
 test('chave desconhecida gera erro informativo', () => {
   assert.throws(() => validateSettingPayload('desconhecida', {}), /não suportada/);
+});
+
+test('maskSecretPreview preserva os 4 últimos caracteres', () => {
+  assert.equal(maskSecretPreview('abcd1234'), '***•••1234');
+  assert.equal(maskSecretPreview('abc'), '••••');
 });

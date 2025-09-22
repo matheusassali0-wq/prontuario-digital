@@ -59,7 +59,7 @@ SESSION_SECRET=troque-isto-32chars
 - `GET    /api/pacientes/:id/export` — exporta JSON LGPD (paciente + evoluções + prescrições).
 - `GET    /api/v1/settings` — configurações não secretas filtradas por RBAC.
 - `PUT    /api/v1/settings/:key` — atualiza configurações (Admin + CSRF).
-- `GET    /api/v1/secrets/:key/meta` / `PUT /api/v1/secrets/:key` — rotação AES-256-GCM de segredos.
+- `GET    /api/v1/secrets/:key/meta` / `GET /api/v1/secrets/:key` / `PUT /api/v1/secrets/:key` — metadados, revelação temporária e rotação AES-256-GCM de segredos.
 - `GET    /api/v1/flags` / `PUT /api/v1/flags/:key` — feature flags versionadas com auditoria.
 - `POST   /api/v1/settings/test/sso-birdid` — valida discovery OIDC (timeout 8s).
 - `POST   /api/v1/settings/export` / `POST /api/v1/settings/import?dryRun=1` — exporta/importa JSON sem segredos.
