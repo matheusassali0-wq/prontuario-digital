@@ -571,7 +571,7 @@ export default function Pacientes() {
             {patients.map(({ patient, highlights }) => {
               const contact = contactFromRecord(patient);
               return (
-                <li key={patient.id} className={patient.id === activePatientId ? 'selected' : ''}>
+                <li key={patient.id} className={patient.id === activePatientId ? 'selected' : ''}
                     <button type="button" onClick={() => void handleSelectPatient(patient.id)}>
                     <div className="patient-main">
                       <h3>{renderHighlight(patient.name, highlights?.name, debouncedSearch)}</h3>

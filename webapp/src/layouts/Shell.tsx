@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import useOfflineStore from '../stores/offlineStore';
 import { flushOutboxNow } from '../offline/sync';
 
+
 const navLinks = [
   { to: '/', label: 'Dashboard' },
   { to: '/pacientes', label: 'Pacientes' },

@@ -21,6 +21,7 @@ dist/
 build/
 out/
 .next/
+.next/coverage/
 .vite/
 .parcel-cache/
 coverage/
