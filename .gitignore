@@ -1,36 +1,61 @@
-HEAD
-### AL ###
-#Template for AL projects for Dynamics 365 Business Central
-#launch.json folder
-.vscode/
-#Cache folder
-.alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-file
-*.flf
-#Test results file
-TestResults.xml
-﻿node_modules/
-.env
-credentials.json
+**/node_modules/
+dist/
+build/
+out/
+.next/
+coverage/
+.nyc_output/
+.eslintcache
+.cache/
+.turbo/
+.vite/
+**/.vite/
+*.log
+*.map
+*.tmp
+*.temp
 .DS_Store
-48ede97 (Initial commit)
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.env
+.env.*
+!.env.example
+
+# Projeto
+webapp/data/logs-*
+**/logs/
+logs/
+
+exports/**
+!exports/README.md
+uploads/**
+
+certs/**
+!certs/README.md
+!certs/*.example*
+!certs/*.pem.example
+!certs/*.crt.example
+!certs/*.key.example
+
+data/**
+!data/README.md
+!data/*.schema.json
+!data/*.example.json
+
 webapp/node_modules/
-venv/
-*.exe
-*.msi
+webapp/coverage/
+webapp/dist/
+webapp/build/
+
+*.tgz
+*.gz
 *.zip
-*.exe
-*.msi
-*.zip
+*.7z
+*.bak
+*.orig
+*.rej
