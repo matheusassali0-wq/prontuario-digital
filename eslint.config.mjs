@@ -14,6 +14,12 @@ const jsConfigs = [
         process: 'readonly',
         console: 'readonly',
         __dirname: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        AbortController: 'readonly',
+        fetch: 'readonly',
       },
     },
     rules: {

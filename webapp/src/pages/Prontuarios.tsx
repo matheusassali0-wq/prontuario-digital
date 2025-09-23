@@ -549,7 +549,7 @@ export default function Prontuarios() {
       disabled: !selectedNote,
       run: () => {
         if (selectedNote) {
-          navigate(`/prontuarios/imprimir/${selectedNote.id}`);
+          void navigate(`/prontuarios/imprimir/${selectedNote.id}`);
         }
       },
     });
@@ -651,7 +651,7 @@ export default function Prontuarios() {
             className="ghost-button"
             onClick={() => {
               if (selectedNote) {
-                navigate(`/prontuarios/imprimir/${selectedNote.id}`);
+                void navigate(`/prontuarios/imprimir/${selectedNote.id}`);
               }
             }}
             disabled={!selectedNote}
@@ -749,7 +749,7 @@ export default function Prontuarios() {
             <button
               type="button"
               className="ghost-button"
-              onClick={() => selectedNote && navigate(`/prontuarios/imprimir/${selectedNote.id}`)}
+              onClick={() => selectedNote && void navigate(`/prontuarios/imprimir/${selectedNote.id}`)}
               disabled={!selectedNote}
             >
               Gerar impressão

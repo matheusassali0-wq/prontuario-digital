@@ -91,7 +91,9 @@ export default function ProntuarioPrint() {
       <div className="print-container">
         <div className="print-card">
           <p>Nota não informada.</p>
-          <button type="button" className="ghost-button" onClick={() => navigate(-1)}>
+          <button type="button" className="ghost-button" onClick={() => {
+            void navigate(-1);
+          }}>
             Voltar
           </button>
         </div>
@@ -104,7 +106,9 @@ export default function ProntuarioPrint() {
       <div className="print-container">
         <div className="print-card">
           <p className="alert alert-error">{error}</p>
-          <button type="button" className="ghost-button" onClick={() => navigate(-1)}>
+          <button type="button" className="ghost-button" onClick={() => {
+            void navigate(-1);
+          }}>
             Voltar
           </button>
         </div>

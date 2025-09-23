@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -147,10 +147,10 @@ const renderHighlight = (
   text: string,
   ranges?: [number, number][],
   fallbackQuery?: string,
-): (string | JSX.Element)[] => {
+): (string | ReactNode)[] => {
   if (!text) return ['—'];
   if (ranges && ranges.length) {
-    const fragments: (string | JSX.Element)[] = [];
+    const fragments: (string | ReactNode)[] = [];
     let cursor = 0;
     ranges.forEach(([start, end], index) => {
       const safeStart = Math.max(0, start);
