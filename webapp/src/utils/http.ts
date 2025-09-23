@@ -44,7 +44,7 @@ export async function requestJson<T = unknown>(
   path: string,
   method: HttpMethod = 'GET',
   body?: unknown,
-  options: RetryOptions = {}
+  options: RetryOptions = {},
 ): Promise<T> {
   const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
   const isGet = method === 'GET';

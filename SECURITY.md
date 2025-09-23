@@ -1,4 +1,5 @@
 # SECURITY.md — STRIDE & Controles
+
 - **COOP/COEP** + HTTPS local ⇒ `crossOriginIsolated` (WASM/crypto robusto).
 - **CSP estrita**, XFO DENY, XCTO nosniff, RP no-referrer, Permissions-Policy mínima, CORP same-origin.
 - **KDF**: Argon2id (WASM) quando presente; fallback PBKDF2/300k.

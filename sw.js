@@ -21,9 +21,9 @@ self.addEventListener("activate", (e) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
-        )
-      )
+          keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+        ),
+      ),
   );
   self.clients.claim();
 });
@@ -39,13 +39,13 @@ self.addEventListener("fetch", (e) => {
           caches.open(CACHE).then((cache) => cache.put(e.request, clone));
           return response;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() => caches.match(e.request)),
     );
     return;
   }
 
   // Cache-first para assets estáticos
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    caches.match(e.request).then((cached) => cached || fetch(e.request)),
   );
 });

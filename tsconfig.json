@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -19,21 +15,11 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@contracts": [
-        "contracts/dist/index.js",
-        "contracts/src/index.ts"
-      ],
-      "@contracts/*": [
-        "contracts/dist/*",
-        "contracts/src/*"
-      ]
+      "@contracts": ["contracts/dist/index.js", "contracts/src/index.ts"],
+      "@contracts/*": ["contracts/dist/*", "contracts/src/*"]
     }
   },
-  "include": [
-    "types/**/*.d.ts",
-    "server/**/*.ts",
-    "scripts/**/*.ts"
-  ],
+  "include": ["types/**/*.d.ts", "server/**/*.ts", "scripts/**/*.ts"],
   "exclude": [
     "src",
     "webapp",

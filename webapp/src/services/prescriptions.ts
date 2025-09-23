@@ -1,4 +1,8 @@
-import type { PrescriptionItem, PrescriptionRecord, PrescriptionCreateInput } from '@contracts/prescriptions';
+import type {
+  PrescriptionItem,
+  PrescriptionRecord,
+  PrescriptionCreateInput,
+} from '@contracts/prescriptions';
 import { requestJson, sha256Base16 } from '../utils/http';
 
 // Types now sourced from shared contracts (@contracts)
@@ -13,15 +17,16 @@ type StatusPayload = {
 export const loadAuthStatus = async (): Promise<StatusPayload> =>
   requestJson<StatusPayload>('/auth/status');
 
-export const requestAuthorizeUrl = async (
-  payload: { codeChallenge: string; state?: string },
-): Promise<{ ok: boolean; authorizeUrl: string; returnUrl?: string }> =>
+export const requestAuthorizeUrl = async (payload: {
+  codeChallenge: string;
+  state?: string;
+}): Promise<{ ok: boolean; authorizeUrl: string; returnUrl?: string }> =>
   requestJson('/auth/login', 'POST', payload);
 
 export const listPrescriptions = async (patientId: string): Promise<PrescriptionRecord[]> => {
   const response = await requestJson<{ items?: PrescriptionRecord[] }>(
     `/pacientes/${patientId}/prescricoes`,
-    'GET'
+    'GET',
   );
   return Array.isArray(response.items) ? response.items : [];
 };
@@ -45,7 +50,7 @@ export const printPrescription = async (input: {
     '/prescricoes/print',
     'POST',
     body,
-    { idempotencyKey: idKey, payloadHash: await sha256Base16(body) }
+    { idempotencyKey: idKey, payloadHash: await sha256Base16(body) },
   );
   return payload.item;
 };

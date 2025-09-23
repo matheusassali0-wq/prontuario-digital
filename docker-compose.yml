@@ -1,23 +1,102 @@
-version: '3.9'
+name: prontuario-digital
+
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: prontuario-db
+    container_name: prontuario-postgres
     restart: unless-stopped
     environment:
+      TZ: America/Sao_Paulo
       POSTGRES_DB: prontuario_digital
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d prontuario_digital"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     container_name: prontuario-redis
     restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    image: node:20-alpine
+    container_name: prontuario-api
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      NODE_ENV: development
+      PORT: 3030
+      NODE_OPTIONS: "--enable-source-maps --unhandled-rejections=strict"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/prontuario_digital?connection_limit=5&pool_timeout=30
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: change_me_in_dev
+      WEBAPP_PORT: 5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3030:3030"
+      - "9229:9229"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:3030/readyz'',r=>process.exit(r.statusCode===200?0:1)).on(''error'',()=>process.exit(1))"',
+        ]
+      interval: 7s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - ./:/workspace:cached
+    working_dir: /workspace
+    command:
+      [
+        "sh",
+        "-lc",
+        "apk add --no-cache curl >/dev/null 2>&1 || true; npm i --silent || true; npx prisma generate || true; node --inspect=0.0.0.0:9229 server/server-pro.cjs",
+      ]
+
+  webapp:
+    image: node:20-alpine
+    container_name: prontuario-webapp
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      NODE_ENV: development
+      PORT: 5173
+    depends_on:
+      api:
+        condition: service_healthy
+    working_dir: /workspace/webapp
+    volumes:
+      - ./:/workspace:cached
+    ports:
+      - "5173:5173"
+    command:
+      ["sh", "-lc", "npm i --silent || true; npm run dev -- --host 0.0.0.0"]
+
 volumes:
-  postgres_data:
+  pg_data:
+
+networks:
+  default:
+    name: prontuario-net

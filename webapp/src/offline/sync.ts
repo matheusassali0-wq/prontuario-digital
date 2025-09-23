@@ -12,7 +12,8 @@ import {
 import useOfflineStore from '../stores/offlineStore';
 
 const baseDelay = (() => {
-  const raw = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_OUTBOX_POLL_INTERVAL;
+  const raw = (import.meta as { env?: Record<string, string | undefined> }).env
+    ?.VITE_OUTBOX_POLL_INTERVAL;
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 2000;
 })();

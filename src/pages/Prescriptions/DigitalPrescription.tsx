@@ -56,14 +56,14 @@ const whitelist = (v: string) =>
 const sanitize = (v: string) => whitelist(collapseSpaces(stripTags(v)));
 const getMeta = (name: string) => {
   const el = document.querySelector(
-    `meta[name="${name}"]`
+    `meta[name="${name}"]`,
   ) as HTMLMetaElement | null;
   return el?.content || "";
 };
 const ensureCsrf = () => {
   const name = "csrf-token";
   let m = document.querySelector(
-    `meta[name="${name}"]`
+    `meta[name="${name}"]`,
   ) as HTMLMetaElement | null;
   if (!m) {
     m = document.createElement("meta");
@@ -78,7 +78,7 @@ const jitter = (ms: number) =>
 const safeFetch = async (
   input: RequestInfo | URL,
   init: RequestInit & { timeoutMs?: number; signal?: AbortSignal } = {},
-  retries = 2
+  retries = 2,
 ) => {
   let attempt = 0;
   let lastErr: unknown = new Error("Falha de rede");
@@ -117,14 +117,14 @@ const safeFetch = async (
     attempt += 1;
     if (attempt <= retries)
       await new Promise((r) =>
-        setTimeout(r, jitter(200 * Math.pow(2, attempt)))
+        setTimeout(r, jitter(200 * Math.pow(2, attempt))),
       );
   }
   throw lastErr instanceof Error ? lastErr : new Error("Falha de rede");
 };
 const persistSignedPrescription = async (
   p: SignedPrescription,
-  controller: AbortController
+  controller: AbortController,
 ) => {
   const blob = new Blob([JSON.stringify({ ok: true, id: p.id })], {
     type: "application/json",
@@ -134,7 +134,7 @@ const persistSignedPrescription = async (
     const res = await safeFetch(
       url,
       { method: "GET", signal: controller.signal, timeoutMs: 1200 },
-      2
+      2,
     );
     await res.json();
     return true;
@@ -148,7 +148,7 @@ const useSecureStore = () => {
       const ac = controller ?? new AbortController();
       await persistSignedPrescription(p, ac);
     },
-    []
+    [],
   );
   const activePatientId = getMeta("active-patient-id") || "";
   const activePatient = activePatientId ? { id: activePatientId } : undefined;
@@ -178,13 +178,13 @@ const useSecurity = () => {
       const payload = JSON.stringify({ ...data, id });
       const digest = await crypto.subtle.digest(
         "SHA-256",
-        enc.encode(`${payload}.${csrf}.${tok}`)
+        enc.encode(`${payload}.${csrf}.${tok}`),
       );
       const signature = toB64(digest);
       const signedAt = new Date().toISOString();
       return { ...data, id, signature, signedAt };
     },
-    []
+    [],
   );
   return { validatePrescription, signPrescription };
 };
@@ -276,7 +276,7 @@ const DigitalPrescription: React.FC = () => {
   const dInstructions = useDeferredValue(prescription.instructions);
   const preview = useMemo(
     () => (dInstructions ? dInstructions.slice(0, 80) : ""),
-    [dInstructions]
+    [dInstructions],
   );
 
   useEffect(() => {
@@ -343,7 +343,7 @@ const DigitalPrescription: React.FC = () => {
         }
       }
     },
-    []
+    [],
   );
 
   const abortInFlight = useCallback(() => {
@@ -429,7 +429,7 @@ const DigitalPrescription: React.FC = () => {
       validateLocal,
       validatePrescription,
       focusFirstError,
-    ]
+    ],
   );
 
   const clearAll = useCallback(() => {
@@ -669,8 +669,8 @@ const DigitalPrescription: React.FC = () => {
             status === "success"
               ? "#ecfdf5"
               : status === "error"
-              ? "#fef2f2"
-              : "#f8fafc",
+                ? "#fef2f2"
+                : "#f8fafc",
           border: "1px solid #e2e8f0",
           display: "grid",
           gap: 6,

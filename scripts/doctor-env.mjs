@@ -38,14 +38,14 @@ if (process.env.DISABLE_ENV_GUARD === "1") {
 if (process.platform === "linux" && isWSL()) {
   if (isWindowsMount(cwd)) {
     console.error(
-      "\n[ENV GUARD] Repositório em partição Windows (/mnt/*). Mova para o WSL (ex.: ~/projetos)."
+      "\n[ENV GUARD] Repositório em partição Windows (/mnt/*). Mova para o WSL (ex.: ~/projetos).",
     );
     console.error(`[ENV GUARD] Diretório atual: ${cwd}`);
     process.exit(1);
   }
   if (!isExtFilesystem(cwd)) {
     console.error(
-      "\n[ENV GUARD] Filesystem não-ext detectado. Recomendado ext4 no WSL para performance e compatibilidade."
+      "\n[ENV GUARD] Filesystem não-ext detectado. Recomendado ext4 no WSL para performance e compatibilidade.",
     );
     console.error(`[ENV GUARD] Diretório atual: ${cwd}`);
     process.exit(1);
@@ -55,7 +55,7 @@ if (process.platform === "linux" && isWSL()) {
 // Optional: Block Node on Windows directly (non-WSL)
 if (process.platform === "win32") {
   console.error(
-    "\n[ENV GUARD] Execução direta no Windows detectada. Utilize WSL/Linux para evitar problemas de filesystem e binários."
+    "\n[ENV GUARD] Execução direta no Windows detectada. Utilize WSL/Linux para evitar problemas de filesystem e binários.",
   );
   process.exit(1);
 }

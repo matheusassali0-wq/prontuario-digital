@@ -55,9 +55,7 @@ const runTransaction = async <T>(
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, mode);
     const store = tx.objectStore(storeName);
-    handler(store)
-      .then(resolve)
-      .catch(reject);
+    handler(store).then(resolve).catch(reject);
     tx.oncomplete = () => db.close();
     tx.onerror = () => reject(tx.error ?? new Error('transaction failed'));
   });
@@ -93,22 +91,25 @@ export const enqueue = async (payload: EnqueuePayload): Promise<OutboxItem> => {
 };
 
 export const getBatch = async (limit = 5): Promise<OutboxItem[]> =>
-  runTransaction(OUTBOX_STORE, 'readonly', async (store) =>
-    new Promise<OutboxItem[]>((resolve, reject) => {
-      const results: OutboxItem[] = [];
-      const index = store.index('createdAt');
-      const cursorRequest = index.openCursor();
-      cursorRequest.onsuccess = () => {
-        const cursor = cursorRequest.result;
-        if (!cursor || results.length >= limit) {
-          resolve(results);
-          return;
-        }
-        results.push(cursor.value as OutboxItem);
-        cursor.continue();
-      };
-      cursorRequest.onerror = () => reject(cursorRequest.error ?? new Error('cursor failed'));
-    }),
+  runTransaction(
+    OUTBOX_STORE,
+    'readonly',
+    async (store) =>
+      new Promise<OutboxItem[]>((resolve, reject) => {
+        const results: OutboxItem[] = [];
+        const index = store.index('createdAt');
+        const cursorRequest = index.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor || results.length >= limit) {
+            resolve(results);
+            return;
+          }
+          results.push(cursor.value as OutboxItem);
+          cursor.continue();
+        };
+        cursorRequest.onerror = () => reject(cursorRequest.error ?? new Error('cursor failed'));
+      }),
   );
 
 export const markDone = async (id: string): Promise<void> => {
@@ -128,12 +129,15 @@ export const bumpRetry = async (id: string): Promise<void> => {
 };
 
 export const countPending = async (): Promise<number> =>
-  runTransaction(OUTBOX_STORE, 'readonly', async (store) =>
-    new Promise<number>((resolve, reject) => {
-      const countRequest = store.count();
-      countRequest.onsuccess = () => resolve(countRequest.result ?? 0);
-      countRequest.onerror = () => reject(countRequest.error ?? new Error('count failed'));
-    }),
+  runTransaction(
+    OUTBOX_STORE,
+    'readonly',
+    async (store) =>
+      new Promise<number>((resolve, reject) => {
+        const countRequest = store.count();
+        countRequest.onsuccess = () => resolve(countRequest.result ?? 0);
+        countRequest.onerror = () => reject(countRequest.error ?? new Error('count failed'));
+      }),
   );
 
 export const clearOutbox = async (): Promise<void> => {

@@ -1,21 +1,21 @@
-const STATIC_CACHE = 'indi-prontuario-static-v1';
-const RUNTIME_CACHE = 'indi-prontuario-runtime-v1';
-const OFFLINE_URL = '/offline.html';
+const STATIC_CACHE = "indi-prontuario-static-v1";
+const RUNTIME_CACHE = "indi-prontuario-runtime-v1";
+const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
+  "/",
+  "/index.html",
   OFFLINE_URL,
-  '/app',
-  '/app/',
-  '/app/index.html',
-  '/app/dashboard',
-  '/app/pacientes',
-  '/app/prontuarios',
-  '/app/prescricoes',
-  '/app/configuracoes',
+  "/app",
+  "/app/",
+  "/app/index.html",
+  "/app/dashboard",
+  "/app/pacientes",
+  "/app/prontuarios",
+  "/app/prescricoes",
+  "/app/configuracoes",
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
@@ -25,7 +25,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
@@ -40,13 +40,16 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const isHtmlNavigation = (request) => request.mode === 'navigate' || (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'));
+const isHtmlNavigation = (request) =>
+  request.mode === "navigate" ||
+  (request.method === "GET" &&
+    request.headers.get("accept")?.includes("text/html"));
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (request.method !== 'GET') {
+  if (request.method !== "GET") {
     return;
   }
 
@@ -71,7 +74,7 @@ self.addEventListener('fetch', (event) => {
       return;
     }
 
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith("/api/")) {
       event.respondWith(
         caches.open(RUNTIME_CACHE).then(async (cache) => {
           try {

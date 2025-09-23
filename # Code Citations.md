@@ -1,14 +1,15 @@
 # Code Citations
 
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
 .html
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -16,8 +17,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <!
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -25,8 +26,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <!DOCTYPE html>
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -35,8 +36,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <html lang
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -45,8 +46,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <html lang="pt-BR
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -56,8 +57,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <hea
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -65,11 +66,11 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    
+
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -80,8 +81,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta charset="UTF
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -92,8 +93,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta charset="UTF-8">
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -105,8 +106,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -118,8 +119,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta name="viewport"
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -131,8 +132,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta name="viewport" content="width=
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -144,8 +145,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta name="viewport" content="width=device-width,
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -157,8 +158,8 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta name="viewport" content="width=device-width, initial-scale=
 ```
 
-
 ## License: unknown
+
 https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc1e5f685883/lista-produtos.html
 
 ```
@@ -169,4 +170,3 @@ https://github.com/rciambarella/hiringcoders/blob/38f1636ce9b96f179303bca39ca2cc
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 ```
-

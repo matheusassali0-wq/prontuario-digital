@@ -1,43 +1,38 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "lib": [
-      "ES2020",
-      "DOM"
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
     ],
-    "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": [
-        "*"
-      ],
-      "@contracts/prescriptions": [
-        "../../contracts/dist/prescriptions.d.ts",
-        "../../contracts/src/prescriptions.ts"
-      ],
-      "@contracts": [
-        "../../contracts/dist/index.d.ts",
-        "../../contracts/src/index.ts"
-      ],
-      "@contracts/*": [
-        "../../contracts/dist/*",
-        "../../contracts/src/*"
-      ]
-    },
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
     "strict": true,
-    "skipLibCheck": true
-  },
-  "include": [
-    "src"
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+"types": [
+  "vite/client"
+],
+"paths": {
+  "@contracts": [
+    "../contracts/src/index.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage",
-    "src/ai.ts",
-    "src/src/**",
-    "src/**/*.legacy.*"
+  "@contracts/*": [
+    "../contracts/src/*"
   ]
+},
+},
+"exclude": [
+  "build",
+  ".next",
+  "coverage"
+]
 }

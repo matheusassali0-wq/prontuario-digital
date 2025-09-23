@@ -22,7 +22,7 @@ export default [
       'public/**',
       'src/ai.ts',
       'src/src/**',
-      '**/.vite/**'
+      '**/.vite/**',
     ],
   },
   {

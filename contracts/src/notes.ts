@@ -1,25 +1,29 @@
-'use strict';
-import { z } from 'zod';
+"use strict";
+import { z } from "zod";
 
-export const NoteCreateSchema = z.object({
+export const NoteCreateSchema = z
+  .object({
     encounterId: z.string().trim().min(1),
     authorId: z.string().trim().optional(),
     contentText: z.string().trim().min(1),
-}).strict();
+  })
+  .strict();
 
-export const NoteUpdateSchema = z.object({
+export const NoteUpdateSchema = z
+  .object({
     contentText: z.string().trim().min(1),
     authorId: z.string().trim().optional(),
-}).strict();
+  })
+  .strict();
 
 export const NoteRecordSchema = z.object({
-    id: z.string().min(1),
-    encounterId: z.string().min(1),
-    authorId: z.string().nullable(),
-    contentText: z.string().min(1),
-    version: z.number().int().positive(),
-    createdAt: z.string().min(1),
-    updatedAt: z.string().min(1),
+  id: z.string().min(1),
+  encounterId: z.string().min(1),
+  authorId: z.string().nullable(),
+  contentText: z.string().min(1),
+  version: z.number().int().positive(),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
 });
 export type NoteCreateInput = z.infer<typeof NoteCreateSchema>;
 export type NoteUpdateInput = z.infer<typeof NoteUpdateSchema>;

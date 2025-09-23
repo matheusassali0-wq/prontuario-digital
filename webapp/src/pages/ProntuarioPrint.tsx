@@ -60,8 +60,11 @@ export default function ProntuarioPrint() {
         setNote(payload.note);
         const patientId =
           payload.note.encounter?.patientId ??
-          (await requestJson<{ encounter: { patientId: string } }>(`/encounters/${payload.note.encounterId}`)).encounter
-            .patientId;
+          (
+            await requestJson<{ encounter: { patientId: string } }>(
+              `/encounters/${payload.note.encounterId}`,
+            )
+          ).encounter.patientId;
         const patientPayload = await requestJson<{ patient: Patient }>(`/patients/${patientId}`);
         setPatient(patientPayload.patient);
         document.title = `Evolução ${patientPayload.patient.name}`;
@@ -77,7 +80,13 @@ export default function ProntuarioPrint() {
       <div className="print-container">
         <div className="print-card">
           <p>Nota não informada.</p>
-          <button type="button" className="ghost-button" onClick={() => navigate(-1)}>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              void navigate(-1);
+            }}
+          >
             Voltar
           </button>
         </div>
@@ -90,7 +99,13 @@ export default function ProntuarioPrint() {
       <div className="print-container">
         <div className="print-card">
           <p className="alert alert-error">{error}</p>
-          <button type="button" className="ghost-button" onClick={() => navigate(-1)}>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              void navigate(-1);
+            }}
+          >
             Voltar
           </button>
         </div>
@@ -116,7 +131,13 @@ export default function ProntuarioPrint() {
             <h1>Dr. Matheus Jorge Assali • CRM-SP 210257 • RQE 130535</h1>
             <p>Data/Hora (GMT-3): {formatDateTime(note.updatedAt)}</p>
           </div>
-          <button type="button" className="secondary-button print-action" onClick={() => window.print()}>
+          <button
+            type="button"
+            className="secondary-button print-action"
+            onClick={() => {
+              window.print();
+            }}
+          >
             Imprimir PDF
           </button>
         </header>

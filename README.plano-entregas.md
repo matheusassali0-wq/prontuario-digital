@@ -169,7 +169,7 @@ export const PrescriptionRecordSchema = z.object({
   observacoes: z.string().optional(),
   formato: z.enum(["A4", "A5"]),
   itens: z.array(
-    PrescriptionItemSchema.extend({ ordem: z.number().int().positive() })
+    PrescriptionItemSchema.extend({ ordem: z.number().int().positive() }),
   ),
   criadoEm: z.string().min(1),
   tipo: z.literal("PRINT"),

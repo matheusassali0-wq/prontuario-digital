@@ -32,7 +32,11 @@ export function analisarTexto(texto:string){
   let egfr=null as null|number; if(creat&&idade!=null&&sexo){ egfr=eGFR_CKDEPI_2021(creat,idade,sexo as any) }
   const alertas:string[]=[];
   if(egfr!==null){ if(egfr<15) alertas.push('eGFR <15 (DRC G5)'); else if(egfr<30) alertas.push('eGFR <30 (G4)'); else if(egfr<60) alertas.push('eGFR <60 (G3)'); }
-  if(/k[tf]\s*\/?\s*v\s*[:=]?\s*(\d+(\.\d+)?)/.test(t)){ const v=parseFloat(RegExp.); if(v<1.2) alertas.push('Kt/V abaixo da meta'); }
+    const ktvMatch = t.match(/k[tf]\s*\/\?\s*v\s*[:=]?\s*(\d+(?:\.\d+)?)/);
+    if (ktvMatch) {
+      const v = parseFloat(ktvMatch[1]);
+      if (!Number.isNaN(v) && v < 1.2) alertas.push('Kt/V abaixo da meta');
+    }
   return {sugs, egfr, alertas};
 }
 

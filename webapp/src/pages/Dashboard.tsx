@@ -43,7 +43,9 @@ export default function Dashboard() {
         if (!mounted) return;
         setData(m);
         const now = new Date();
-        setLastUpdated(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        setLastUpdated(
+          `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        );
         setIsOnline(true);
       } catch {
         if (!mounted) return;
@@ -51,8 +53,8 @@ export default function Dashboard() {
         setIsOnline(false);
       }
     };
-    load();
-    const id = setInterval(load, 30_000);
+    void load();
+    const id = setInterval(() => void load(), 30_000);
     return () => {
       mounted = false;
       clearInterval(id);
@@ -61,10 +63,26 @@ export default function Dashboard() {
 
   const metrics = useMemo(
     () => [
-      { label: 'Total de pacientes', value: String(data.totalPatients), footnote: `Última atualização às ${lastUpdated}` },
-      { label: 'Consultas hoje', value: String(data.encountersToday), footnote: isOnline ? 'Dados em tempo real' : 'Offline — mostrando último valor' },
-      { label: 'Prescrições ativas', value: String(data.activePrescriptions), footnote: 'Validadas nas últimas 72h' },
-      { label: 'Pendências críticas', value: String(data.allergyAlerts), footnote: 'Revisar solicitações de exame' },
+      {
+        label: 'Total de pacientes',
+        value: String(data.totalPatients),
+        footnote: `Última atualização às ${lastUpdated}`,
+      },
+      {
+        label: 'Consultas hoje',
+        value: String(data.encountersToday),
+        footnote: isOnline ? 'Dados em tempo real' : 'Offline — mostrando último valor',
+      },
+      {
+        label: 'Prescrições ativas',
+        value: String(data.activePrescriptions),
+        footnote: 'Validadas nas últimas 72h',
+      },
+      {
+        label: 'Pendências críticas',
+        value: String(data.allergyAlerts),
+        footnote: 'Revisar solicitações de exame',
+      },
     ],
     [data, lastUpdated, isOnline],
   );
@@ -81,7 +99,7 @@ export default function Dashboard() {
       </section>
 
       <section aria-label="Métricas principais" className="cards-grid">
-        {metrics.map((metric) => (
+        {metrics.map((metric: { label: string; value: string; footnote: string }) => (
           <article key={metric.label} className="card-tile">
             <span className="card-metric">{metric.label}</span>
             <span className="card-value">{metric.value}</span>
@@ -105,7 +123,11 @@ export default function Dashboard() {
               {isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
-          <p className="card-footnote">{isOnline ? `SSO conectado. Último check às ${lastUpdated} (GMT-3).` : 'Sem conexão — tentando novamente...'}</p>
+          <p className="card-footnote">
+            {isOnline
+              ? `SSO conectado. Último check às ${lastUpdated} (GMT-3).`
+              : 'Sem conexão — tentando novamente...'}
+          </p>
           <button type="button" className="action-card" style={{ borderStyle: 'solid' }}>
             <span className="action-title">Gerenciar credenciais</span>
             <span className="action-description">Abrir configurações de integração Bird ID.</span>

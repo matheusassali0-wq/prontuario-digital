@@ -1,0 +1,7 @@
+
+> prontuario@1.0.0 dev
+> node ./scripts/doctor-env.mjs && node ./server/server-pro.cjs
+
+
+[ENV GUARD] Repositório em partição Windows (/mnt/*). Mova para o WSL (ex.: ~/projetos).
+[ENV GUARD] Diretório atual: /mnt/c/Users/mathe/OneDrive/Minhas fontes de dados/prontuario digital

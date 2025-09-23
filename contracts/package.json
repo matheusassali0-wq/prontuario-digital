@@ -1,18 +1,18 @@
 {
-    "name": "@prontuario/contracts",
-    "private": true,
-    "version": "0.1.0",
-    "type": "commonjs",
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": "./dist/index.js",
-        "./prescriptions": "./dist/prescriptions.js",
-        "./patients": "./dist/patients.js",
-        "./encounters": "./dist/encounters.js",
-        "./notes": "./dist/notes.js"
-    },
-    "scripts": {
-        "build": "tsc -p ./tsconfig.json"
-    }
+  "name": "@prontuario/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./prescriptions": "./dist/prescriptions.js",
+    "./patients": "./dist/patients.js",
+    "./encounters": "./dist/encounters.js",
+    "./notes": "./dist/notes.js"
+  },
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json"
+  }
 }

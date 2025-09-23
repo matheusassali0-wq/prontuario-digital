@@ -106,9 +106,12 @@ export const installFetchInterceptor = () => {
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const method = (init?.method ?? 'GET').toUpperCase();
-    const requestUrl = typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
+    const requestUrl =
+      typeof input === 'string' || input instanceof URL ? input.toString() : input.url;
     const url = new URL(requestUrl, window.location.origin);
-    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
     const isMutation = METHODS_WITH_BODY.has(method);
 
     if (!isMutation) {
@@ -160,7 +163,11 @@ export const installFetchInterceptor = () => {
     }
 
     try {
-      const response = await originalFetch(input, { ...init, headers, body: bodyString ?? init?.body });
+      const response = await originalFetch(input, {
+        ...init,
+        headers,
+        body: bodyString ?? init?.body,
+      });
       if (!response.ok && response.status >= 500) {
         throw new Error(`HTTP ${response.status}`);
       }

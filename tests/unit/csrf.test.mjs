@@ -16,9 +16,9 @@ function get(path, headers = {}) {
             status: res.statusCode,
             body: Buffer.concat(chunks).toString("utf8"),
             headers: res.headers,
-          })
+          }),
         );
-      }
+      },
     );
     req.on("error", reject);
     req.end();
@@ -33,7 +33,7 @@ test("CSRF endpoint returns token and sets cookie", async () => {
     assert.ok(body.csrfToken && typeof body.csrfToken === "string");
     const setCookie = res.headers["set-cookie"];
     assert.ok(
-      !setCookie || Array.isArray(setCookie) || typeof setCookie === "string"
+      !setCookie || Array.isArray(setCookie) || typeof setCookie === "string",
     );
   } catch {
     // server offline, skip softly

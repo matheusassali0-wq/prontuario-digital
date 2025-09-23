@@ -1,16 +1,23 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import type { PatientRecord as ContractPatientRecord, PatientCreateUpdateInput } from '@contracts/patients';
+// webapp/src/pages/Pacientes.tsx
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import type {
+  PatientRecord as ContractPatientRecord,
+  PatientCreateUpdateInput,
+} from '@contracts/patients';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { TimelineEvent, useActivePatientStore } from '../stores/patientStore';
+import type { TimelineEvent } from '../stores/patientStore';
+import { useActivePatientStore } from '../stores/patientStore';
 
-const resolveApiBase = () => {
+type JsonRecord = Record<string, unknown>;
+const isRecord = (v: unknown): v is JsonRecord => typeof v === 'object' && v !== null;
+
+const resolveApiBase = (): string => {
   const meta = import.meta as { env?: Record<string, string | undefined> };
   const candidate = meta.env?.VITE_API_BASE_URL;
-  if (typeof candidate === 'string' && candidate.trim().length > 0) {
-    return candidate;
-  }
+  if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate;
   return '/api/v1';
 };
 
@@ -24,7 +31,14 @@ const patientFormSchema = z.object({
   document: z.string().trim().max(32).optional().or(z.literal('')).default(''),
   birthDate: z.string().trim().max(32).optional().or(z.literal('')).default(''),
   contactPhone: z.string().trim().max(64).optional().or(z.literal('')).default(''),
-  contactEmail: z.string().trim().email('E-mail inválido').max(120).optional().or(z.literal('')).default(''),
+  contactEmail: z
+    .string()
+    .trim()
+    .email('E-mail inválido')
+    .max(120)
+    .optional()
+    .or(z.literal(''))
+    .default(''),
   contactNotes: z.string().trim().max(280).optional().or(z.literal('')).default(''),
   payer: z.string().trim().max(120).optional().or(z.literal('')).default(''),
   allergies: z.array(z.string().trim().min(1).max(80)).default([]),
@@ -32,11 +46,9 @@ const patientFormSchema = z.object({
 });
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;
-
 export type PatientRecord = ContractPatientRecord;
 
 type HighlightRanges = Record<string, [number, number][]>;
-
 type PatientListItem = {
   patient: PatientRecord;
   highlights?: HighlightRanges;
@@ -77,30 +89,24 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
   if (!response.ok) {
     let detail: string | undefined;
     try {
-      const body = (await response.json()) as unknown;
-      if (body && typeof body === 'object') {
-        const record = body as Record<string, unknown>;
-        const candidate = record.detail ?? record.error;
-        if (typeof candidate === 'string' && candidate.trim().length > 0) {
-          detail = candidate;
-        }
+      const body: unknown = await response.json();
+      if (isRecord(body)) {
+        const candidate = (body.detail ?? (body).error);
+        if (typeof candidate === 'string' && candidate.trim()) detail = candidate;
       }
     } catch {
-      detail = undefined;
+      // sem corpo JSON
     }
     const fallback = response.statusText?.trim().length ? response.statusText : undefined;
     throw new Error(detail || fallback || 'Falha inesperada ao comunicar com a API.');
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
+  if (response.status === 204) return undefined as T;
 
   const text = await response.text();
-  if (!text) {
-    return undefined as T;
-  }
-  const parsed = JSON.parse(text) as unknown;
+  if (!text) return undefined as T;
+
+  const parsed: unknown = JSON.parse(text);
   return parsed as T;
 };
 
@@ -137,17 +143,16 @@ const renderHighlight = (
   text: string,
   ranges?: [number, number][],
   fallbackQuery?: string,
-): (string | JSX.Element)[] => {
+): (string | ReactNode)[] => {
   if (!text) return ['—'];
+
   if (ranges && ranges.length) {
-    const fragments: (string | JSX.Element)[] = [];
+    const fragments: (string | ReactNode)[] = [];
     let cursor = 0;
     ranges.forEach(([start, end], index) => {
       const safeStart = Math.max(0, start);
       const safeEnd = Math.min(text.length, end);
-      if (cursor < safeStart) {
-        fragments.push(text.slice(cursor, safeStart));
-      }
+      if (cursor < safeStart) fragments.push(text.slice(cursor, safeStart));
       fragments.push(
         <mark key={`highlight-${index}`} className="search-highlight">
           {text.slice(safeStart, safeEnd)}
@@ -155,18 +160,16 @@ const renderHighlight = (
       );
       cursor = safeEnd;
     });
-    if (cursor < text.length) {
-      fragments.push(text.slice(cursor));
-    }
+    if (cursor < text.length) fragments.push(text.slice(cursor));
     return fragments;
   }
 
-  if (!fallbackQuery) return [text];
-  const normalized = fallbackQuery.trim();
-  if (!normalized) return [text];
-  const regex = new RegExp(`(${normalized.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')})`, 'ig');
+  if (!fallbackQuery?.trim()) return [text];
+  const needle = fallbackQuery.trim();
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'ig');
   return text.split(regex).map((part, index) =>
-    part.toLowerCase() === normalized.toLowerCase() ? (
+    part.toLowerCase() === needle.toLowerCase() ? (
       <mark key={`fallback-${index}`} className="search-highlight">
         {part}
       </mark>
@@ -175,18 +178,28 @@ const renderHighlight = (
     ),
   );
 };
-
-const contactFromRecord = (record: PatientRecord): { phone?: string; email?: string; notes?: string } => {
-  if (!record.contact || typeof record.contact !== 'object') return {};
-  const phone = typeof record.contact.phone === 'string' ? record.contact.phone : undefined;
-  const email = typeof record.contact.email === 'string' ? record.contact.email : undefined;
-  const notes = typeof record.contact.notes === 'string' ? record.contact.notes : undefined;
+const contactFromRecord = (
+  record: PatientRecord,
+): { phone?: string; email?: string; notes?: string } => {
+  if (!isRecord(record.contact)) return {};
+  const c = record.contact;
+  const phone = typeof c.phone === 'string' ? c.phone : undefined;
+  const email = typeof c.email === 'string' ? c.email : undefined;
+  const notes = typeof c.notes === 'string' ? c.notes : undefined;
   return { phone, email, notes };
 };
 
+const errorMessageFrom = (err: unknown, fallback = 'Falha ao sincronizar eventos.'): string => {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
+    return (err as { message: string }).message;
+  }
+  return fallback;
+};
+
 const summarizeEvent = (event: TimelineEvent) => {
-  const summary = typeof event.payload?.summary === 'string' ? event.payload.summary : undefined;
-  if (summary) return summary;
+  const payload = (event as { payload?: unknown }).payload;
+  if (isRecord(payload) && typeof payload.summary === 'string') return payload.summary;
   if (event.type === 'PATIENT_CREATE') return 'Paciente cadastrado';
   if (event.type === 'PATIENT_UPDATE') return 'Atualização de dados cadastrais';
   if (event.type === 'PATIENT_DELETE') return 'Remoção do cadastro';
@@ -338,8 +351,10 @@ export default function Pacientes() {
     try {
       const payload = await fetchJson<Metrics>('/patients/metrics');
       setMetrics(payload);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível carregar os indicadores.');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Não foi possível carregar os indicadores.';
+      setErrorMessage(msg);
     }
   };
 
@@ -348,9 +363,10 @@ export default function Pacientes() {
     try {
       const query = debouncedSearch ? `?query=${encodeURIComponent(debouncedSearch)}` : '';
       const payload = await fetchJson<{ items?: PatientListItem[] }>(`/patients${query}`);
-      setPatients(payload?.items ?? []);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Falha ao carregar pacientes.');
+      setPatients(payload.items ?? []);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao carregar pacientes.';
+      setErrorMessage(msg);
     } finally {
       setIsLoadingList(false);
     }
@@ -365,10 +381,10 @@ export default function Pacientes() {
   }, []);
 
   useEffect(() => {
-    if (timelineError) {
-      setErrorMessage(timelineError);
-      clearError();
-    }
+    if (!timelineError) return;
+    const msg = errorMessageFrom(timelineError);
+    setErrorMessage(msg);
+    clearError();
   }, [timelineError, clearError]);
 
   useEffect(() => {
@@ -404,6 +420,7 @@ export default function Pacientes() {
   const onSubmit = async (values: PatientFormValues) => {
     try {
       setErrorMessage(null);
+
       const contact: Record<string, string> | null = (() => {
         const entries: [string, string][] = [];
         const phone = values.contactPhone.trim();
@@ -417,10 +434,10 @@ export default function Pacientes() {
 
       const payload: PatientCreateUpdateInput = {
         name: values.name.trim(),
-        document: (values.document.trim() || null) as any,
-        birthDate: toISODate(values.birthDate.trim()) as any,
+        document: values.document.trim() || null,
+        birthDate: toISODate(values.birthDate.trim()),
         contact,
-        payer: (values.payer.trim() || null) as any,
+        payer: values.payer.trim() || null,
         allergies: values.allergies,
         tags: values.tags,
       };
@@ -444,7 +461,10 @@ export default function Pacientes() {
         const existingIndex = previous.findIndex((item) => item.patient.id === response.id);
         if (existingIndex >= 0) {
           const clone = [...previous];
-          clone[existingIndex] = { patient: response, highlights: previous[existingIndex]?.highlights };
+          clone[existingIndex] = {
+            patient: response,
+            highlights: previous[existingIndex]?.highlights,
+          };
           return clone;
         }
         return [{ patient: response }, ...previous];
@@ -453,13 +473,10 @@ export default function Pacientes() {
       await setActivePatient(response.id);
       void loadMetrics();
       setFeedback(activePatientId ? 'Dados do paciente atualizados.' : 'Paciente cadastrado com sucesso.');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Não foi possível salvar o paciente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível salvar o paciente.';
+      setErrorMessage(msg);
     }
-  };
-
-  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
-    void handleSubmit((values) => onSubmit(values))(event);
   };
 
   const handleNewPatient = () => {
@@ -478,8 +495,9 @@ export default function Pacientes() {
       await setActivePatient(null);
       void loadMetrics();
       setFeedback('Paciente removido com sucesso.');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Falha ao remover paciente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover paciente.';
+      setErrorMessage(msg);
     }
   };
 
@@ -487,8 +505,8 @@ export default function Pacientes() {
     await setActivePatient(id);
   };
 
-  const selectedTimeline = useMemo(() => {
-    if (!activePatientId) return [] as TimelineEvent[];
+  const selectedTimeline = useMemo<TimelineEvent[]>(() => {
+    if (!activePatientId) return [];
     return eventsByPatient[activePatientId] ?? [];
   }, [eventsByPatient, activePatientId]);
 
@@ -501,16 +519,8 @@ export default function Pacientes() {
         <p className="page-subtitle">Gestão de cadastro, seleção ativa e visão 360° dos atendimentos.</p>
       </header>
 
-      {feedback && (
-        <div role="status" className="toast toast-success">
-          {feedback}
-        </div>
-      )}
-      {errorMessage && (
-        <div role="alert" className="toast toast-error">
-          {errorMessage}
-        </div>
-      )}
+      {feedback && <div role="status" className="toast toast-success">{feedback}</div>}
+      {errorMessage && <div role="alert" className="toast toast-error">{errorMessage}</div>}
 
       <section className="patient-counters" aria-label="Indicadores de pacientes">
         <article className="card-tile">
@@ -547,12 +557,7 @@ export default function Pacientes() {
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
             </label>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => void loadPatients()}
-              disabled={isLoadingList}
-            >
+            <button type="button" className="ghost" onClick={() => void loadPatients()} disabled={isLoadingList}>
               Atualizar lista
             </button>
           </div>
@@ -582,11 +587,7 @@ export default function Pacientes() {
                         <dt>Contato</dt>
                         <dd>
                           {contact.phone || contact.email || contact.notes
-                            ? renderHighlight(
-                              contact.phone || contact.email || contact.notes || '—',
-                              highlights?.contact,
-                              debouncedSearch,
-                            )
+                            ? renderHighlight(contact.phone || contact.email || contact.notes || '—', highlights?.contact, debouncedSearch)
                             : '—'}
                         </dd>
                       </div>
@@ -603,9 +604,9 @@ export default function Pacientes() {
         </div>
 
         <div className="patient-form" aria-label="Formulário do paciente">
-          <form onSubmit={handleFormSubmit}>
+          <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(onSubmit)(e); }}>
             <div className="form-grid">
-              <Controller
+              <Controller<PatientFormValues>
                 name="name"
                 control={control}
                 render={({ field }) => (
@@ -617,7 +618,7 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="document"
                 control={control}
                 render={({ field }) => (
@@ -629,7 +630,7 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="birthDate"
                 control={control}
                 render={({ field }) => (
@@ -640,7 +641,7 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="payer"
                 control={control}
                 render={({ field }) => (
@@ -651,7 +652,7 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="contactPhone"
                 control={control}
                 render={({ field }) => (
@@ -662,7 +663,7 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="contactEmail"
                 control={control}
                 render={({ field }) => (
@@ -674,39 +675,39 @@ export default function Pacientes() {
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="contactNotes"
                 control={control}
                 render={({ field }) => (
-                  <label className="form-field full-width">
-                    <span>Notas de contato</span>
-                    <textarea rows={3} {...field} />
+                  <label className="form-field">
+                    <span>Observações do contato</span>
+                    <textarea {...field} rows={2} />
                   </label>
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="allergies"
                 control={control}
                 render={({ field }) => (
                   <ChipInput
                     label="Alergias"
                     placeholder="Digite e pressione Enter"
-                    value={field.value}
+                    value={Array.isArray(field.value) ? (field.value) : []}
                     onChange={(next) => field.onChange(next)}
                     disabled={isSubmitting}
                   />
                 )}
               />
 
-              <Controller
+              <Controller<PatientFormValues>
                 name="tags"
                 control={control}
                 render={({ field }) => (
                   <ChipInput
                     label="Tags clínicas"
                     placeholder="Ex.: crônico, retorno, telemed"
-                    value={field.value}
+                    value={Array.isArray(field.value) ? (field.value) : []}
                     onChange={(next) => field.onChange(next)}
                     disabled={isSubmitting}
                   />
@@ -779,20 +780,24 @@ export default function Pacientes() {
               <section key={group.day} className="timeline-group">
                 <h3>{formatDate(group.day)}</h3>
                 <ul>
-                  {group.items.map((event) => (
-                    <li key={event.id}>
-                      <div className="timeline-icon" aria-hidden>
-                        {iconForEvent(event.type)}
-                      </div>
-                      <div className="timeline-body">
-                        <strong>{summarizeEvent(event)}</strong>
-                        <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
-                        {typeof event.payload?.hash === 'string' && event.payload.hash && (
-                          <small className="hash-chain">Hash: {event.payload.hash.slice(0, 16)}…</small>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                  {group.items.map((event) => {
+                    const payload = (event as { payload?: unknown }).payload;
+                    const hash =
+                      isRecord(payload) && typeof payload.hash === 'string' ? payload.hash : null;
+
+                    return (
+                      <li key={event.id}>
+                        <div className="timeline-icon" aria-hidden>
+                          {iconForEvent(event.type)}
+                        </div>
+                        <div className="timeline-body">
+                          <strong>{summarizeEvent(event)}</strong>
+                          <time dateTime={event.createdAt}>{formatDateTime(event.createdAt)}</time>
+                          {hash && <small className="hash-chain">Hash: {hash.slice(0, 16)}…</small>}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ))}

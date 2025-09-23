@@ -1,5 +1,5 @@
-'use strict';
-export * from './prescriptions';
-export * from './patients';
-export * from './encounters';
-export * from './notes';
+"use strict";
+export * from "./prescriptions";
+export * from "./patients";
+export * from "./encounters";
+export * from "./notes";

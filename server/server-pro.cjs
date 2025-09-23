@@ -28,12 +28,11 @@ try {
   }
 }
 
+// Prisma client
 const prisma = new PrismaClient();
-const uploadsBaseDir = path.resolve(__dirname, "uploads");
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+
+// File uploads config
+const uploadsBaseDir = path.resolve(path.join(__dirname, "uploads"));
 const allowedAttachmentMimes = new Set([
   "application/pdf",
   "image/png",
@@ -45,6 +44,16 @@ const ensureDirectory = async (targetPath) => {
     await fsPromises.mkdir(targetPath, { recursive: true });
   }
 };
+
+// Multer in-memory storage (we validate and persist manually)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    if (allowedAttachmentMimes.has(file.mimetype)) return cb(null, true);
+    return cb(new Error("Tipo de arquivo não permitido"));
+  },
+});
 
 const sanitizeFileName = (rawName) => {
   if (!rawName) return "arquivo";
@@ -199,12 +208,20 @@ const metrics = (() => {
 })();
 try {
   require("./otel.cjs").start();
-} catch {}
+} catch {
+  // Optional observability: continue without OpenTelemetry
+  void 0;
+}
 
 const app = express();
 app.disable("x-powered-by");
 
 ensureDirectory(uploadsBaseDir).catch(() => undefined);
+
+// Async route helper (define early to use in routes below)
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -283,10 +300,96 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 app.use(apiLimiter);
+// Basic liveness and readiness endpoints
+// /healthz: quick liveness OK if process is running
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ status: "ok", ts: new Date().toISOString() });
+});
+
+// /readyz: validates connectivity to Postgres (Prisma) and Redis (if configured)
+app.get(
+  "/readyz",
+  asyncHandler(async (_req, res) => {
+    const report = {
+      postgres: false,
+      redis: null,
+      ts: new Date().toISOString(),
+    };
+    try {
+      // SELECT 1 via Prisma to confirm DB connectivity
+      await prisma.$queryRaw`SELECT 1`;
+      report.postgres = true;
+    } catch {
+      report.postgres = false;
+    }
+    try {
+      if (process.env.REDIS_URL) {
+        // Attempt PING using existing client if available
+        let client = null;
+        try {
+          client = idempBackend || null;
+        } catch {
+          client = null;
+        }
+        if (!client) {
+          try {
+            const { createClient } = require("redis");
+            client = createClient({ url: process.env.REDIS_URL });
+            await client.connect();
+          } catch (e) {
+            // Unable to create or connect a transient Redis client for readiness probe
+            writeError(e);
+          }
+        }
+        if (client) {
+          const pong = await client.ping().catch(() => null);
+          report.redis = pong === "PONG";
+          if (!idempBackend && client?.disconnect) {
+            await client.disconnect().catch(() => undefined);
+          }
+        } else {
+          report.redis = false;
+        }
+      } else {
+        report.redis = true; // not configured -> treat as ready
+      }
+    } catch {
+      report.redis = false;
+    }
+    const ok = report.postgres && report.redis === true;
+    if (ok) return res.status(200).json({ status: "ready", ...report });
+    return res.status(503).json({ status: "degraded", ...report });
+  })
+);
 // p99 metrics endpoint
 app.get(["/api/metrics", "/api/v1/metrics"], (_req, res) =>
   res.json({ p: metrics.snapshot() })
 );
+
+// Lightweight telemetry: event-loop delay gauge and plain-text metrics
+let loopDelayNs = 0;
+try {
+  const { monitorEventLoopDelay } = require("perf_hooks");
+  const h = monitorEventLoopDelay({ resolution: 20 });
+  h.enable();
+  require("timers")
+    .setInterval(() => {
+      loopDelayNs = h.mean;
+      h.reset();
+    }, 5000)
+    .unref();
+  app.get("/metrics", (_req, res) => {
+    const now = new Date().toISOString();
+    const ms = loopDelayNs / 1e6;
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.end(
+      `app_up 1\nnode_event_loop_delay_mean_ms ${ms.toFixed(3)}\nmetrics_ts_seconds ${Math.floor(Date.now() / 1000)}\n# ${now}`
+    );
+  });
+} catch {
+  // perf_hooks not available in this runtime; skip loop delay metrics
+  void 0;
+}
 
 // Idempotency TTL (seconds); can be overridden via env IDEMP_TTL_SEC
 const IDEMP_TTL_SEC = Number(process.env.IDEMP_TTL_SEC || 600);
@@ -469,12 +572,18 @@ try {
             patientId,
             durationMs: Date.now() - start,
           });
-        } catch {}
+        } catch {
+          // Audit append failed; continue request lifecycle
+          void 0;
+        }
       }
     });
     next();
   });
-} catch {}
+} catch {
+  // Audit middleware not available; continue without WORM audit
+  void 0;
+}
 
 // LGPD portability: JSON-LD export stub
 app.get(
@@ -524,7 +633,10 @@ try {
       res.status(201).json({ ok: true });
     }
   );
-} catch {}
+} catch {
+  // RBAC/Feature flags not enabled; endpoint skipped
+  void 0;
+}
 
 // OpenAPI docs from zod-to-openapi if contracts available
 try {
@@ -538,7 +650,7 @@ try {
       });
       res.setHeader("Content-Type", "application/json");
       res.status(200).end(JSON.stringify(doc));
-    } catch (e) {
+    } catch {
       res.status(500).json({ error: "openapi_failed" });
     }
   });
@@ -546,7 +658,10 @@ try {
     msg: "observability_ready",
     otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   });
-} catch {}
+} catch {
+  // OpenAPI builder not available; docs endpoint disabled
+  void 0;
+}
 
 const PATIENT_PAGE_SIZE_DEFAULT = 15;
 
@@ -770,9 +885,7 @@ const querySchema = z
     perPage: params.perPage ?? PATIENT_PAGE_SIZE_DEFAULT,
   }));
 
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+// asyncHandler defined earlier
 
 const computeHash = (payload) =>
   crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
@@ -1943,10 +2056,10 @@ app.use((err, req, res, _next) => {
 });
 
 const PORT = Number(process.env.PORT || 3030);
-const HOST = String(process.env.HOST || '0.0.0.0'); // bind all interfaces by default (WSL-friendly)
+const HOST = String(process.env.HOST || "0.0.0.0"); // bind all interfaces by default (WSL-friendly)
 
 const server = app.listen(PORT, HOST, () => {
-  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  const displayHost = HOST === "0.0.0.0" ? "localhost" : HOST;
   writeInfo(`API pronta em http://${displayHost}:${PORT}`);
 });
 

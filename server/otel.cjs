@@ -39,7 +39,7 @@ function status() {
   console.log(
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT
       ? "otel: enabled"
-      : "otel: disabled (no endpoint)"
+      : "otel: disabled (no endpoint)",
   );
 }
 module.exports = { start, shutdown, status };

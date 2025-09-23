@@ -12,7 +12,7 @@ corepack enable || true
 cp .env.example .env
 
 # Suba os serviços de dados
-docker compose up -d db redis
+docker compose up -d postgres redis
 
 # Instale dependências (raiz e webapp)
 pnpm install
@@ -67,6 +67,7 @@ SESSION_SECRET=troque-isto-32chars
 - `PUT    /api/v1/patients/:id` — atualização completa.
 - `DELETE /api/v1/patients/:id` — remoção lógica (com eventos/auditoria).
 - `GET    /api/v1/patients/:id/events` — timeline 360° (cadeia WORM).
+<<<<<<< Updated upstream
 - `GET    /api/pacientes/:id/export` — exporta JSON LGPD (paciente + evoluções + prescrições).
 - `GET    /api/v1/settings` — configurações não secretas filtradas por RBAC.
 - `PUT    /api/v1/settings/:key` — atualiza configurações (Admin + CSRF).
@@ -74,6 +75,9 @@ SESSION_SECRET=troque-isto-32chars
 - `GET    /api/v1/flags` / `PUT /api/v1/flags/:key` — feature flags versionadas com auditoria.
 - `POST   /api/v1/settings/test/sso-birdid` — valida discovery OIDC (timeout 8s).
 - `POST   /api/v1/settings/export` / `POST /api/v1/settings/import?dryRun=1` — exporta/importa JSON sem segredos.
+=======
+- `GET    /api/pacientes/:id/export/jsonld` — exporta JSON-LD LGPD (paciente + evoluções + prescrições).
+>>>>>>> Stashed changes
 - `POST   /api/v1/encounters` — registra encontro clínico (INITIAL/FOLLOW_UP).
 - `GET    /api/v1/encounters?patient_id=` — lista encontros com nota mais recente.
 - `GET    /api/v1/encounters/:id` — detalhes do encontro + notas/versões.
@@ -107,7 +111,7 @@ SESSION_SECRET=troque-isto-32chars
 
 - Interceptor `offline/fetchInterceptor.ts` adiciona `X-Idempotency-Key` e, quando offline ou em erro de rede, enfileira mutações no IndexedDB.
 - Worker `offline/sync.ts` processa lotes (backoff 2s → 16s), sincroniza automaticamente ao voltar a conexão e mantém mapa `cid → serverId`.
-- API (`server/server-pro.mjs`) persiste dedupe em `data/idempotency.json`, responde replays sem duplicar timeline e registra auditoria WORM (`hashPrev` + SHA-256).
+- API (`server/server-pro.cjs`) persiste dedupe em Redis (quando configurado) ou em memória, responde replays sem duplicar timeline e registra auditoria WORM (`hashPrev` + SHA-256).
 - Export LGPD disponível em `/api/pacientes/:id/export`, com auditoria `EXPORT_PATIENT_JSON` sem PII adicional.
 - Banner “Modo offline” e pill “Sincronizar” exibem estado em tempo real; pending count refletido via Zustand.
 

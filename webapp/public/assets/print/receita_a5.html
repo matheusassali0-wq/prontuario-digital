@@ -1,23 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <title>Receituário {{NUMERO}}</title>
     <style>
-      @page { size: A5; margin: 10mm; }
-      body { font-family: 'Montserrat', Arial, sans-serif; color: #1f2933; }
-      h1 { font-size: 18px; margin: 0 0 8px; }
-      .header { margin-bottom: 12px; }
-      .meta { font-size: 13px; margin-bottom: 12px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #cbd2d9; padding: 6px; text-align: left; }
-      th { background: #e4ebf3; }
-      .footer { margin-top: 24px; font-size: 13px; }
+      @page {
+        size: A5;
+        margin: 10mm;
+      }
+      body {
+        font-family: 'Montserrat', Arial, sans-serif;
+        color: #1f2933;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 8px;
+      }
+      .header {
+        margin-bottom: 12px;
+      }
+      .meta {
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #cbd2d9;
+        padding: 6px;
+        text-align: left;
+      }
+      th {
+        background: #e4ebf3;
+      }
+      .footer {
+        margin-top: 24px;
+        font-size: 13px;
+      }
     </style>
   </head>
   <body>
     <div class="header">
-      <img src="./receita_header_a5.svg" alt="Cabeçalho" style="max-width: 100%;" />
+      <img src="./receita_header_a5.svg" alt="Cabeçalho" style="max-width: 100%" />
     </div>
     <div class="meta">
       <p><strong>Nº:</strong> {{NUMERO}}</p>
@@ -39,7 +67,9 @@
     <div class="footer">
       <p><strong>Observações adicionais:</strong></p>
       <p>{{OBSERVACOES}}</p>
-      <p style="margin-top: 36px;">__________________________________________<br />Assinatura e carimbo</p>
+      <p style="margin-top: 36px">
+        __________________________________________<br />Assinatura e carimbo
+      </p>
     </div>
   </body>
 </html>

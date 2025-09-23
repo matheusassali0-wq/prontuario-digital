@@ -18,9 +18,9 @@ const post = (path, body, headers = {}) =>
           resolve({
             status: res.statusCode,
             body: Buffer.concat(chunks).toString("utf8"),
-          })
+          }),
         );
-      }
+      },
     );
     req.on("error", reject);
     req.end(JSON.stringify(body));

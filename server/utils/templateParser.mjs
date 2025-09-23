@@ -6,7 +6,7 @@ export function parseTemplate(tpl, vars) {
       let v = vars;
       for (const key of path) v = v != null ? v[key] : undefined;
       return v == null ? "" : String(v);
-    }
+    },
   );
 }
 export default parseTemplate;

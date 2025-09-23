@@ -1,24 +1,20 @@
 {
-    "extends": "../tsconfig.json",
-    "compilerOptions": {
-        "composite": true,
-        "declaration": true,
-        "declarationMap": true,
-        "emitDeclarationOnly": false,
-        "noEmit": false,
-        "outDir": "dist",
-        "rootDir": "src",
-        "module": "CommonJS",
-        "moduleResolution": "Node",
-        "verbatimModuleSyntax": false,
-        "baseUrl": ".",
-        "paths": {
-            "@contracts/*": [
-                "src/*"
-            ]
-        }
-    },
-    "include": [
-        "src/**/*.ts"
-    ]
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "verbatimModuleSyntax": false,
+    "baseUrl": ".",
+    "paths": {
+      "@contracts/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.ts"]
 }

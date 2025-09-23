@@ -20,13 +20,12 @@ interface ActivePatientState {
   dropPatientEvents: (id: string) => void;
 }
 
-const resolveApiBase = () => {
+const resolveApiBase = (): string => {
   const meta = import.meta as { env?: Record<string, string | undefined> };
   const candidate = meta.env?.VITE_API_BASE_URL;
-  if (typeof candidate === 'string' && candidate.trim().length > 0) {
-    return candidate;
-  }
-  return 'http://127.0.0.1:3030/api';
+  if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate;
+  // Alinhado com Pacientes.tsx: fallback para /api/v1
+  return '/api/v1';
 };
 
 const buildUrl = (path: string) => {
@@ -38,55 +37,66 @@ const buildUrl = (path: string) => {
 const fetchEvents = async (patientId: string): Promise<TimelineEvent[]> => {
   const response = await fetch(buildUrl(`/patients/${patientId}/events`), {
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    credentials: 'include'
   });
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => '');
+    let detail: string | undefined;
+    try {
+      const txt = await response.text();
+      detail = txt?.trim() || undefined;
+    } catch {
+      // ignore
+    }
     throw new Error(detail || 'Não foi possível carregar a timeline');
   }
 
-  const payload = (await response.json()) as { items?: TimelineEvent[] };
-  return Array.isArray(payload.items) ? payload.items : [];
+  const payload: unknown = await response.json();
+  const items = (payload as { items?: unknown }).items;
+  return Array.isArray(items) ? (items as TimelineEvent[]) : [];
 };
 
-export const useActivePatientStore = create<ActivePatientState>((set, get) => ({
+export const useActivePatientStore = create<ActivePatientState>()((set, get) => ({
   activePatientId: null,
   eventsByPatient: {},
   isLoading: false,
   error: undefined,
-  async setActivePatient(id) {
+
+  async setActivePatient(id: string | null) {
     set({ activePatientId: id });
     if (!id) {
       set({ isLoading: false, error: undefined });
       return;
     }
-    await get().refreshEvents(id);
+    const state = get();
+    await state.refreshEvents(id);
   },
-  async refreshEvents(id) {
+
+  async refreshEvents(id: string) {
     set({ isLoading: true, error: undefined });
     try {
       const events = await fetchEvents(id);
       set((state) => ({
         eventsByPatient: { ...state.eventsByPatient, [id]: events },
         isLoading: false,
-        error: undefined,
+        error: undefined
       }));
-    } catch (error) {
-      set({
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Erro desconhecido ao carregar eventos',
-      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Erro desconhecido ao carregar eventos';
+      set({ isLoading: false, error: message });
     }
   },
+
   clearError() {
     set({ error: undefined });
   },
-  dropPatientEvents(id) {
+
+  dropPatientEvents(id: string) {
     set((state) => {
       const next = { ...state.eventsByPatient };
       delete next[id];
       return { eventsByPatient: next };
     });
-  },
+  }
 }));

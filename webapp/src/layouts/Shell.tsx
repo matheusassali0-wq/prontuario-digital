@@ -2,7 +2,6 @@ import { NavLink, Outlet } from 'react-router-dom';
 import useOfflineStore from '../stores/offlineStore';
 import { flushOutboxNow } from '../offline/sync';
 
-
 const navLinks = [
   { to: '/', label: 'Dashboard' },
   { to: '/pacientes', label: 'Pacientes' },
@@ -13,7 +12,8 @@ const navLinks = [
 
 export default function Shell() {
   const { online, pending, syncing } = useOfflineStore();
-  const pendingLabel = pending > 0 ? `${pending} pendência${pending > 1 ? 's' : ''}` : 'Sem pendências';
+  const pendingLabel =
+    pending > 0 ? `${pending} pendência${pending > 1 ? 's' : ''}` : 'Sem pendências';
   const statusLabel = online ? 'Online' : 'Offline';
 
   return (
@@ -47,7 +47,7 @@ export default function Shell() {
             onClick={() => flushOutboxNow()}
             disabled={pending === 0 && !syncing}
           >
-            {syncing ? 'Sincronizando…' : pending > 0 ? pendingLabel : 'Sincronizar' }
+            {syncing ? 'Sincronizando…' : pending > 0 ? pendingLabel : 'Sincronizar'}
           </button>
           <span className="topbar-pill version-pill">v0.1.0</span>
         </div>

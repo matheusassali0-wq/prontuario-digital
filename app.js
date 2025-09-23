@@ -36,7 +36,7 @@ function safeLogEvent(eventType, details = {}, severity = "MEDIUM") {
       return singularityCore.auditTrail.logSecurityEvent(
         eventType,
         details,
-        severity
+        severity,
       );
     }
   } catch (e) {
@@ -253,7 +253,7 @@ class QuantumCryptographyEngine {
           : `uuid-${Date.now()}`;
       const ts = Date.now().toString(36);
       const randomParts = Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 256)
+        Math.floor(Math.random() * 256),
       ).join("-");
       const userEntropy =
         typeof Session !== "undefined" && Session.getActiveUser
@@ -268,7 +268,7 @@ class QuantumCryptographyEngine {
         try {
           const bytes = Utilities.computeDigest(
             Utilities.DigestAlgorithm.SHA_256,
-            combined
+            combined,
           );
           return bytes
             .map((b) => (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"))
@@ -421,7 +421,7 @@ class QuantumCryptographyEngine {
       entropy: this.calculateEntropy(str),
       patternHash: this.neuralHash(
         str.substring(0, Math.min(200, str.length)),
-        1000
+        1000,
       ),
       neuralWeight: Math.random() * 0.1 + 0.95,
       quantumSignature: Date.now() % 1000000,
@@ -470,7 +470,7 @@ class QuantumCryptographyEngine {
       (_, i) =>
         Math.sin((i * Math.PI) / 256) *
         Math.cos((i * Math.E) / 128) *
-        Math.tan(i / 64)
+        Math.tan(i / 64),
     );
   }
 }
@@ -696,7 +696,7 @@ class QuantumCryptographyEngine {
           : `uuid-${Date.now()}`;
       const ts = Date.now().toString(36);
       const randomParts = Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 256)
+        Math.floor(Math.random() * 256),
       ).join("-");
       const userEntropy =
         typeof Session !== "undefined" && Session.getActiveUser
@@ -711,7 +711,7 @@ class QuantumCryptographyEngine {
         try {
           const bytes = Utilities.computeDigest(
             Utilities.DigestAlgorithm.SHA_256,
-            combined
+            combined,
           );
           return bytes
             .map((b) => (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"))
@@ -864,7 +864,7 @@ class QuantumCryptographyEngine {
       entropy: this.calculateEntropy(str),
       patternHash: this.neuralHash(
         str.substring(0, Math.min(200, str.length)),
-        1000
+        1000,
       ),
       neuralWeight: Math.random() * 0.1 + 0.95,
       quantumSignature: Date.now() % 1000000,
@@ -913,7 +913,7 @@ class QuantumCryptographyEngine {
       (_, i) =>
         Math.sin((i * Math.PI) / 256) *
         Math.cos((i * Math.E) / 128) *
-        Math.tan(i / 64)
+        Math.tan(i / 64),
     );
   }
 }
@@ -1295,12 +1295,12 @@ class QuantumDataProcessor {
       const securityScan = singularityCore.threatDetection.scanForThreats(
         patientData,
         "SAVE_PATIENT",
-        "PATIENT_DATA"
+        "PATIENT_DATA",
       );
 
       if (securityScan.blocked) {
         throw new Error(
-          `Security threat detected: ${securityScan.threatLevel}`
+          `Security threat detected: ${securityScan.threatLevel}`,
         );
       }
 
@@ -1316,7 +1316,7 @@ class QuantumDataProcessor {
       // Neural analysis
       const neuralAnalysis = singularityCore.neuralAI.analyzePatientData(
         processedData,
-        "PATIENT_REGISTRATION"
+        "PATIENT_REGISTRATION",
       );
 
       // Encrypt sensitive fields
@@ -1325,7 +1325,7 @@ class QuantumDataProcessor {
       // Add quantum signatures
       encryptedData.QuantumHash = singularityCore.quantumCrypto.neuralHash(
         JSON.stringify(processedData),
-        10000
+        10000,
       );
       encryptedData.NeuralSignature = neuralAnalysis.analysisId;
       encryptedData.BlockchainRef =
@@ -1364,7 +1364,7 @@ class QuantumDataProcessor {
       if (isUpdate) {
         const existingRow = this.sheetManager.findRowByID(
           sheet,
-          encryptedData.ID
+          encryptedData.ID,
         );
         if (existingRow > 0) {
           sheet
@@ -1391,7 +1391,7 @@ class QuantumDataProcessor {
           processingTime: Date.now() - startTime,
           encryptionLevel: "NSA_MAXIMUM",
         },
-        "LOW"
+        "LOW",
       );
 
       return {
@@ -1421,7 +1421,7 @@ class QuantumDataProcessor {
           patientName: patientData?.Nome || "UNKNOWN",
           processingTime: Date.now() - startTime,
         },
-        "HIGH"
+        "HIGH",
       );
 
       return {
@@ -1450,7 +1450,7 @@ class QuantumDataProcessor {
       if (data[field] && data[field].trim()) {
         try {
           const encryptionResult = singularityCore.quantumCrypto.quantumEncrypt(
-            data[field]
+            data[field],
           );
           encrypted[`${field}_Encrypted`] = encryptionResult.encrypted;
           delete encrypted[field];
@@ -1473,7 +1473,7 @@ class QuantumDataProcessor {
       const birthDate = new Date(processed.DataNascimento);
       if (!isNaN(birthDate.getTime())) {
         const age = Math.floor(
-          (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+          (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000),
         );
         if (age >= 0 && age <= 150) processed.Idade = age;
       }
@@ -1588,7 +1588,7 @@ class QuantumDataProcessor {
         errors.push("Data de nascimento invÃ¡lida");
       } else {
         const age = Math.floor(
-          (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+          (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000),
         );
         if (age < 0 || age > 150) {
           errors.push("Idade calculada invÃ¡lida");
@@ -1605,7 +1605,7 @@ class QuantumDataProcessor {
   async searchPatientsNeural(query, limit = 50, offset = 0, filters = {}) {
     try {
       const cacheKey = `neural_search_${query}_${limit}_${offset}_${JSON.stringify(
-        filters
+        filters,
       )}`;
       const cached = singularityCore.cache.get(cacheKey);
       if (cached) return cached;
@@ -1738,7 +1738,7 @@ class QuantumDataProcessor {
           query: query || "",
           filters: filters,
         },
-        "MEDIUM"
+        "MEDIUM",
       );
 
       return {
@@ -1951,7 +1951,7 @@ class QuantumSpreadsheetManager {
     const protection = sheet
       .protect()
       .setDescription(
-        `Quantum Protected Sheet: ${schema.name} - NSA Level Security`
+        `Quantum Protected Sheet: ${schema.name} - NSA Level Security`,
       );
     protection.removeEditors(protection.getEditors());
     protection.addEditor(Session.getActiveUser().getEmail());
@@ -1971,7 +1971,7 @@ class QuantumSpreadsheetManager {
       .getRange(1, 1, 1, sheet.getLastColumn())
       .getValues()[0];
     const missingHeaders = schema.headers.filter(
-      (h) => !existingHeaders.includes(h)
+      (h) => !existingHeaders.includes(h),
     );
 
     if (missingHeaders.length > 0) {
@@ -1982,7 +1982,7 @@ class QuantumSpreadsheetManager {
         1,
         lastCol + 1,
         1,
-        missingHeaders.length
+        missingHeaders.length,
       );
       newHeaderRange.setValues([missingHeaders]);
       newHeaderRange
@@ -2001,7 +2001,7 @@ class QuantumSpreadsheetManager {
     const timestamp = Utilities.formatDate(
       new Date(),
       "GMT-3",
-      "yyyyMMddHHmmssSSS"
+      "yyyyMMddHHmmssSSS",
     );
     const quantumRandom = Math.random()
       .toString(36)
@@ -2034,7 +2034,7 @@ class QuantumPrescriptionManager {
       // Security validation
       if (!this.validateBirdIDToken(token)) {
         throw new Error(
-          "Token Bird ID invÃ¡lido - deve conter 6 dÃ­gitos numÃ©ricos"
+          "Token Bird ID invÃ¡lido - deve conter 6 dÃ­gitos numÃ©ricos",
         );
       }
 
@@ -2042,12 +2042,12 @@ class QuantumPrescriptionManager {
       const securityScan = singularityCore.threatDetection.scanForThreats(
         { token, config: additionalConfig },
         "BIRD_ID_CONFIG",
-        "AUTHENTICATION"
+        "AUTHENTICATION",
       );
 
       if (securityScan.blocked) {
         throw new Error(
-          `ConfiguraÃ§Ã£o bloqueada: ${securityScan.threatLevel}`
+          `ConfiguraÃ§Ã£o bloqueada: ${securityScan.threatLevel}`,
         );
       }
 
@@ -2061,7 +2061,7 @@ class QuantumPrescriptionManager {
         securityLevel: "NSA_MAXIMUM",
         quantumSignature: singularityCore.quantumCrypto.neuralHash(
           token + Date.now(),
-          5000
+          5000,
         ),
       };
 
@@ -2099,7 +2099,7 @@ class QuantumPrescriptionManager {
           error: error.message,
           userId: Session.getActiveUser().getEmail(),
         },
-        "HIGH"
+        "HIGH",
       );
 
       return {
@@ -2113,11 +2113,11 @@ class QuantumPrescriptionManager {
   getBirdIDQuantumStatus() {
     try {
       const encryptedConfig = this.birdIdStorage.getProperty(
-        "BIRD_ID_QUANTUM_CONFIG"
+        "BIRD_ID_QUANTUM_CONFIG",
       );
       const status = this.birdIdStorage.getProperty("BIRD_ID_STATUS");
       const quantumHash = this.birdIdStorage.getProperty(
-        "BIRD_ID_QUANTUM_HASH"
+        "BIRD_ID_QUANTUM_HASH",
       );
 
       if (!encryptedConfig || status !== "QUANTUM_ACTIVE") {
@@ -2213,7 +2213,7 @@ function initializeQuantumSystemSafely() {
 
     if (typeof Utilities === "undefined") {
       results.warnings.push(
-        "Google Apps Script Utilities nÃ£o disponÃ­vel - usando fallbacks"
+        "Google Apps Script Utilities nÃ£o disponÃ­vel - usando fallbacks",
       );
     } else {
       console.log("âœ… Google Apps Script Utilities disponÃ­vel");
@@ -2221,7 +2221,7 @@ function initializeQuantumSystemSafely() {
 
     if (typeof Session === "undefined") {
       results.warnings.push(
-        "Google Apps Script Session nÃ£o disponÃ­vel - usando fallbacks"
+        "Google Apps Script Session nÃ£o disponÃ­vel - usando fallbacks",
       );
     } else {
       console.log("âœ… Google Apps Script Session disponÃ­vel");
@@ -2279,7 +2279,7 @@ function initializeQuantumSystemSafely() {
       const mockReport = detectAndWarnMockData();
       if (mockReport && mockReport.found && mockReport.found.length > 0) {
         results.warnings.push(
-          `Mock/demo data detected: ${mockReport.found.length} itens. Execute apiRemoveMockData(true) para remover.`
+          `Mock/demo data detected: ${mockReport.found.length} itens. Execute apiRemoveMockData(true) para remover.`,
         );
       }
     } catch (e) {
@@ -2365,7 +2365,7 @@ function runSystemDiagnostic() {
     ];
 
     diagnostic.overall = criticalComponents.every(
-      (component) => component === true
+      (component) => component === true,
     );
 
     console.log("ðŸ“Š DiagnÃ³stico concluÃ­do:", diagnostic);
@@ -2430,7 +2430,7 @@ function apiSearchPatientsQuantum(query, limit, offset, filters) {
     query,
     limit,
     offset,
-    filters
+    filters,
   );
 }
 
@@ -2441,7 +2441,7 @@ function apiGetDashboardQuantum() {
 function apiConfigureBirdIDQuantum(token, additionalConfig) {
   return quantumDataProcessor.prescriptionManager.configureBirdIDQuantum(
     token,
-    additionalConfig
+    additionalConfig,
   );
 }
 
@@ -2476,7 +2476,7 @@ function apiRunNeuralDiagnostics() {
       const testPatient = { Nome: "Test Patient", Idade: 50 };
       const analysis = singularityCore.neuralAI.analyzePatientData(
         testPatient,
-        "DIAGNOSTIC_TEST"
+        "DIAGNOSTIC_TEST",
       );
       diagnostics.push({
         test: "Neural AI Network",
@@ -2584,7 +2584,7 @@ function apiAnalyzePatientRisk(patientId) {
 
     const analysis = singularityCore.neuralAI.analyzePatientData(
       mockPatient,
-      "RISK_ANALYSIS"
+      "RISK_ANALYSIS",
     );
 
     return {
@@ -2670,7 +2670,7 @@ function apiCalculateKDIGOQuantum(creatinine, age, gender) {
         Creatinina: cr,
         EstagioDRC: stage,
       },
-      "CKD_CALCULATION"
+      "CKD_CALCULATION",
     );
 
     return {
@@ -2694,7 +2694,7 @@ function apiCalculateKDIGOQuantum(creatinine, age, gender) {
         calculatedAt: new Date().toISOString(),
         quantumHash: singularityCore.quantumCrypto.neuralHash(
           JSON.stringify({ cr, ageNum, gender, gfr }),
-          1000
+          1000,
         ),
       },
     };
@@ -2765,7 +2765,7 @@ function doGet() {
 
     return HtmlService.createHtmlOutputFromFile("Index")
       .setTitle(
-        "ðŸ§  Neural Medical System - Quantum Enhanced | Dr. Matheus Jorge Assali"
+        "ðŸ§  Neural Medical System - Quantum Enhanced | Dr. Matheus Jorge Assali",
       )
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } catch (error) {
@@ -2840,11 +2840,11 @@ function openQuantumSystem() {
       .setHeight(1000);
     SpreadsheetApp.getUi().showModalDialog(
       html,
-      "ðŸ§  Neural Medical System - Quantum Interface"
+      "ðŸ§  Neural Medical System - Quantum Interface",
     );
   } catch (error) {
     SpreadsheetApp.getUi().alert(
-      "ðŸš¨ Quantum Interface Error: " + error.message
+      "ðŸš¨ Quantum Interface Error: " + error.message,
     );
   }
 }
@@ -2906,7 +2906,7 @@ ${
     SpreadsheetApp.getUi().alert(
       "â›“ï¸ Quantum Blockchain Status",
       message,
-      SpreadsheetApp.getUi().ButtonSet.OK
+      SpreadsheetApp.getUi().ButtonSet.OK,
     );
   } catch (error) {
     SpreadsheetApp.getUi().alert("ðŸš¨ Blockchain Error: " + error.message);
@@ -2941,11 +2941,11 @@ ${
     SpreadsheetApp.getUi().alert(
       "ðŸ›¡ï¸ Security Matrix Status",
       message,
-      SpreadsheetApp.getUi().ButtonSet.OK
+      SpreadsheetApp.getUi().ButtonSet.OK,
     );
   } catch (error) {
     SpreadsheetApp.getUi().alert(
-      "ðŸš¨ Security Status Error: " + error.message
+      "ðŸš¨ Security Status Error: " + error.message,
     );
   }
 }
@@ -2974,7 +2974,7 @@ function achieveSingularity() {
         timestamp: new Date().toISOString(),
         achievedBy: Session.getActiveUser().getEmail(),
       },
-      "LOW"
+      "LOW",
     );
 
     const message = `ðŸš€ SINGULARITY ACHIEVED
@@ -2996,7 +2996,7 @@ The future of nephrology is now.
     SpreadsheetApp.getUi().alert(
       "ðŸš€ SINGULARITY ACHIEVED",
       message,
-      SpreadsheetApp.getUi().ButtonSet.OK
+      SpreadsheetApp.getUi().ButtonSet.OK,
     );
   } catch (error) {
     SpreadsheetApp.getUi().alert("ðŸš¨ Singularity Error: " + error.message);
@@ -3038,7 +3038,7 @@ Version: ${singularityCore.version}`;
     SpreadsheetApp.getUi().alert(
       "ðŸ“Š System Performance Metrics",
       message,
-      SpreadsheetApp.getUi().ButtonSet.OK
+      SpreadsheetApp.getUi().ButtonSet.OK,
     );
   } catch (error) {
     SpreadsheetApp.getUi().alert("ðŸš¨ Metrics Error: " + error.message);

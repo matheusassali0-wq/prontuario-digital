@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEventHandler } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TimelineEvent, useActivePatientStore } from '../stores/patientStore';
+import type { TimelineEvent } from '../stores/patientStore';
+import { useActivePatientStore } from '../stores/patientStore';
+
+// Types
 
 type Patient = {
   id: string;
@@ -69,12 +72,12 @@ type EvolutionTemplate = {
   content: string;
 };
 
+// Utilities
+
 const resolveApiBase = () => {
   const meta = import.meta as { env?: Record<string, string | undefined> };
   const candidate = meta.env?.VITE_API_BASE_URL;
-  if (typeof candidate === 'string' && candidate.trim().length > 0) {
-    return candidate;
-  }
+  if (typeof candidate === 'string' && candidate.trim().length > 0) return candidate;
   return '/api/v1';
 };
 
@@ -84,15 +87,22 @@ const buildUrl = (path: string) => {
   return `${normalizedBase}${path}`;
 };
 
-const requestJson = async <T,>(path: string, init?: RequestInit & { rawBody?: unknown }) => {
+const requestJson = async <T,>(
+  path: string,
+  init?: RequestInit & { rawBody?: unknown },
+) => {
   const headers = new Headers(init?.headers ?? {});
-  let body = init?.body ?? null;
+  let body: BodyInit | null | undefined = init?.body ?? null;
+
   if (init?.rawBody !== undefined) {
     body = JSON.stringify(init.rawBody);
+    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   }
-  if (!(body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
+
+  // Do not set Content-Type when sending FormData (browser will set boundary)
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (!isFormData && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
   const response = await fetch(buildUrl(path), {
     ...init,
@@ -106,10 +116,7 @@ const requestJson = async <T,>(path: string, init?: RequestInit & { rawBody?: un
     throw new Error(detail || 'Falha ao comunicar com o servidor');
   }
 
-  if (response.status === 204) {
-    return null as T;
-  }
-
+  if (response.status === 204) return null as T;
   return (await response.json()) as T;
 };
 
@@ -142,13 +149,9 @@ const formatDate = (value: string) => {
 };
 
 const humanFileSize = (size: number) => {
-  if (!Number.isFinite(size)) return `${size}`;
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  }
-  if (size >= 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
+  if (!Number.isFinite(size)) return 'N/A';
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${size} B`;
 };
 
@@ -157,23 +160,18 @@ const groupEventsByDay = (events: TimelineEvent[]) => {
   events.forEach((event) => {
     const key = formatDate(event.createdAt);
     const bucket = groups.get(key);
-    if (bucket) {
-      bucket.push(event);
-    } else {
-      groups.set(key, [event]);
-    }
+    if (bucket) bucket.push(event);
+    else groups.set(key, [event]);
   });
   return Array.from(groups.entries()).map(([date, group]) => ({ date, events: group }));
 };
 
+// Component
+
 export default function Prontuarios() {
   const navigate = useNavigate();
-  const {
-    activePatientId,
-    eventsByPatient,
-    isLoading: isTimelineLoading,
-    refreshEvents,
-  } = useActivePatientStore();
+  const { activePatientId, eventsByPatient, isLoading: isTimelineLoading, refreshEvents } =
+    useActivePatientStore();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [templates, setTemplates] = useState<EvolutionTemplate[]>([]);
@@ -183,7 +181,9 @@ export default function Prontuarios() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteVersions, setNoteVersions] = useState<NoteVersion[]>([]);
   const [editorContent, setEditorContent] = useState('');
-  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle',
+  );
   const [isLoadingEncounters, setIsLoadingEncounters] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -191,9 +191,10 @@ export default function Prontuarios() {
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const autosaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContent = useRef<string>('');
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const timelineEvents = useMemo(() => {
-    if (!activePatientId) return [];
+    if (!activePatientId) return [] as TimelineEvent[];
     return eventsByPatient[activePatientId] ?? [];
   }, [activePatientId, eventsByPatient]);
 
@@ -202,9 +203,7 @@ export default function Prontuarios() {
   const loadTemplates = useCallback(async () => {
     try {
       const response = await fetch('/templates/templates_evolucao.json', { cache: 'no-cache' });
-      if (!response.ok) {
-        throw new Error('Falha ao carregar templates');
-      }
+      if (!response.ok) throw new Error('Falha ao carregar templates');
       const payload = (await response.json()) as EvolutionTemplate[];
       setTemplates(payload);
     } catch {
@@ -212,18 +211,15 @@ export default function Prontuarios() {
     }
   }, []);
 
-  const loadPatient = useCallback(
-    async (patientId: string) => {
-      try {
-        const payload = await requestJson<{ patient: Patient }>(`/patients/${patientId}`);
-        setPatient(payload.patient);
+  const loadPatient = useCallback(async (patientId: string) => {
+    try {
+      const payload = await requestJson<{ patient: Patient }>(`/patients/${patientId}`);
+      setPatient(payload.patient);
     } catch (err: unknown) {
       setPatient(null);
       setErrorMessage(err instanceof Error ? err.message : 'Falha ao carregar paciente');
-      }
-    },
-    [],
-  );
+    }
+  }, []);
 
   const loadVersions = useCallback(async (noteId: string) => {
     try {
@@ -239,11 +235,8 @@ export default function Prontuarios() {
       setSelectedNote(note);
       setEditorContent(note?.contentText ?? '');
       lastSavedContent.current = note?.contentText ?? '';
-      if (note?.id) {
-        await loadVersions(note.id);
-      } else {
-        setNoteVersions([]);
-      }
+      if (note?.id) await loadVersions(note.id);
+      else setNoteVersions([]);
     },
     [loadVersions],
   );
@@ -251,14 +244,15 @@ export default function Prontuarios() {
   const loadEncounterDetails = useCallback(
     async (encounterId: string, preferredNoteId?: string | null) => {
       try {
-        const payload = await requestJson<{ encounter: EncounterSummary['encounter']; notes: Note[] }>(
-          `/encounters/${encounterId}`,
-        );
+        const payload = await requestJson<{
+          encounter: EncounterSummary['encounter'];
+          notes: Note[];
+        }>(`/encounters/${encounterId}`);
         setNotes(payload.notes ?? []);
         const nextNote =
-          (preferredNoteId ? payload.notes.find((item) => item.id === preferredNoteId) : undefined) ??
-          payload.notes[0] ??
-          null;
+          (preferredNoteId
+            ? payload.notes.find((item) => item.id === preferredNoteId)
+            : undefined) ?? payload.notes[0] ?? null;
         await applyNoteSelection(nextNote);
       } catch (err: unknown) {
         setNotes([]);
@@ -270,7 +264,11 @@ export default function Prontuarios() {
   );
 
   const loadEncounters = useCallback(
-    async (patientId: string, preferredEncounterId?: string | null, preferredNoteId?: string | null) => {
+    async (
+      patientId: string,
+      preferredEncounterId?: string | null,
+      preferredNoteId?: string | null,
+    ) => {
       setIsLoadingEncounters(true);
       try {
         const payload = await requestJson<{ items: EncounterSummary[] }>(
@@ -281,15 +279,10 @@ export default function Prontuarios() {
         const nextEncounter =
           (preferredEncounterId
             ? items.find((item) => item.encounter.id === preferredEncounterId)?.encounter.id
-            : undefined) ||
-          items[0]?.encounter.id ||
-          null;
+            : undefined) || items[0]?.encounter.id || null;
         setSelectedEncounterId(nextEncounter);
-        if (nextEncounter) {
-          await loadEncounterDetails(nextEncounter, preferredNoteId);
-        } else {
-          await applyNoteSelection(null);
-        }
+        if (nextEncounter) await loadEncounterDetails(nextEncounter, preferredNoteId);
+        else await applyNoteSelection(null);
       } catch (err: unknown) {
         setEncounters([]);
         setSelectedEncounterId(null);
@@ -321,7 +314,7 @@ export default function Prontuarios() {
       applyNoteSelection(null).catch(() => undefined);
       return;
     }
-    refreshPatientContext(activePatientId).catch((err: unknown) => {
+    void refreshPatientContext(activePatientId).catch((err: unknown) => {
       setErrorMessage(err instanceof Error ? err.message : 'Falha ao carregar dados');
     });
   }, [activePatientId, applyNoteSelection, refreshPatientContext]);
@@ -332,13 +325,42 @@ export default function Prontuarios() {
         event.preventDefault();
         setIsPaletteOpen(true);
       }
-      if (event.key === 'Escape') {
-        setIsPaletteOpen(false);
-      }
+      if (event.key === 'Escape') setIsPaletteOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Autosave: debounce 1.5s when content changed
+  useEffect(() => {
+    let mounted = true;
+    if (!selectedNote) {
+      setAutosaveStatus('idle');
+      return () => {
+        mounted = false;
+      };
+    }
+    if (editorContent === lastSavedContent.current) {
+      setAutosaveStatus('idle');
+      return () => {
+        mounted = false;
+      };
+    }
+    setAutosaveStatus('saving');
+    if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
+    autosaveTimeout.current = setTimeout(() => {
+      if (mounted) {
+        saveNoteContent(selectedNote.id, editorContent).catch(() => undefined);
+      }
+    }, 1500);
+    return () => {
+      mounted = false;
+      if (autosaveTimeout.current) {
+        clearTimeout(autosaveTimeout.current);
+        autosaveTimeout.current = null;
+      }
+    };
+  }, [editorContent, selectedNote]);
 
   const saveNoteContent = useCallback(
     async (noteId: string, content: string) => {
@@ -355,9 +377,7 @@ export default function Prontuarios() {
         setEditorContent(payload.note.contentText);
         lastSavedContent.current = payload.note.contentText;
         await loadVersions(payload.note.id);
-        if (activePatientId) {
-          await refreshEvents(activePatientId);
-        }
+        if (activePatientId) await refreshEvents(activePatientId);
         setEncounters((current) =>
           current.map((entry) =>
             entry.encounter.id === payload.note.encounterId
@@ -374,37 +394,13 @@ export default function Prontuarios() {
           ),
         );
         setAutosaveStatus('saved');
-    } catch (err: unknown) {
-      setAutosaveStatus('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Não foi possível salvar a evolução');
+      } catch (err: unknown) {
+        setAutosaveStatus('error');
+        setErrorMessage(err instanceof Error ? err.message : 'Não foi possível salvar a evolução');
       }
     },
     [activePatientId, loadVersions, refreshEvents],
   );
-
-  useEffect(() => {
-    if (!selectedNote) {
-      setAutosaveStatus('idle');
-      return () => undefined;
-    }
-    if (editorContent === lastSavedContent.current) {
-      setAutosaveStatus('idle');
-      return () => undefined;
-    }
-    setAutosaveStatus('saving');
-    if (autosaveTimeout.current) {
-      clearTimeout(autosaveTimeout.current);
-    }
-    autosaveTimeout.current = setTimeout(() => {
-      saveNoteContent(selectedNote.id, editorContent).catch(() => undefined);
-    }, 1500);
-    return () => {
-      if (autosaveTimeout.current) {
-        clearTimeout(autosaveTimeout.current);
-        autosaveTimeout.current = null;
-      }
-    };
-  }, [editorContent, saveNoteContent, selectedNote]);
 
   const handleSelectEncounter = useCallback(
     async (encounterId: string) => {
@@ -430,20 +426,18 @@ export default function Prontuarios() {
       }
       setIsCreating(true);
       try {
-        const encounterPayload = await requestJson<{ encounter: EncounterSummary['encounter'] }>(`/encounters`, {
-          method: 'POST',
-          rawBody: { patientId: activePatientId, type: template.type },
-        });
+        const encounterPayload = await requestJson<{ encounter: EncounterSummary['encounter'] }>(
+          `/encounters`,
+          { method: 'POST', rawBody: { patientId: activePatientId, type: template.type } },
+        );
         const notePayload = await requestJson<{ note: Note }>(`/notes`, {
           method: 'POST',
           rawBody: { encounterId: encounterPayload.encounter.id, contentText: template.content },
         });
         await loadEncounters(activePatientId, encounterPayload.encounter.id, notePayload.note.id);
-        if (activePatientId) {
-          await refreshEvents(activePatientId);
-        }
-        } catch (err: unknown) {
-          setErrorMessage(err instanceof Error ? err.message : 'Falha ao iniciar evolução');
+        if (activePatientId) await refreshEvents(activePatientId);
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Falha ao iniciar evolução');
       } finally {
         setIsCreating(false);
       }
@@ -475,11 +469,9 @@ export default function Prontuarios() {
               : item,
           ),
         );
-        if (activePatientId) {
-          await refreshEvents(activePatientId);
-        }
-        } catch (err: unknown) {
-          setErrorMessage(err instanceof Error ? err.message : 'Falha ao anexar arquivo');
+        if (activePatientId) await refreshEvents(activePatientId);
+      } catch (err: unknown) {
+        setErrorMessage(err instanceof Error ? err.message : 'Falha ao anexar arquivo');
       } finally {
         setIsUploading(false);
       }
@@ -502,10 +494,10 @@ export default function Prontuarios() {
   const handleAttachmentInputChange = useCallback<ChangeEventHandler<HTMLInputElement>>(
     (event) => {
       const file = event.currentTarget.files?.[0];
-      if (file) {
-        void handleUploadAttachment(file);
-        event.currentTarget.value = '';
-      }
+      if (file) void handleUploadAttachment(file);
+      // Reset so selecting the same file again triggers onChange
+
+      event.currentTarget.value = '';
     },
     [handleUploadAttachment],
   );
@@ -513,46 +505,45 @@ export default function Prontuarios() {
   const paletteActions = useMemo(() => {
     const initialTemplate = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
     const followUpTemplate = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
-    const actions = [] as { id: string; label: string; disabled?: boolean; run: () => void }[];
-      if (initialTemplate) {
-        actions.push({
-          id: 'new-initial',
-          label: 'Nova Evolução (1ª)',
-          run: () => {
-            void handleCreateEvolution(initialTemplate);
-          },
-        });
-      }
-      if (followUpTemplate) {
-        actions.push({
-          id: 'new-follow-up',
-          label: 'Nova Evolução (Retorno)',
-          run: () => {
-            void handleCreateEvolution(followUpTemplate);
-          },
-        });
-      }
+    const actions: { id: string; label: string; disabled?: boolean; run: () => void }[] = [];
+
+    if (initialTemplate) {
+      actions.push({
+        id: 'new-initial',
+        label: 'Nova Evolução (1ª)',
+        run: () => {
+          void handleCreateEvolution(initialTemplate);
+        },
+      });
+    }
+    if (followUpTemplate) {
+      actions.push({
+        id: 'new-follow-up',
+        label: 'Nova Evolução (Retorno)',
+        run: () => {
+          void handleCreateEvolution(followUpTemplate);
+        },
+      });
+    }
+
     actions.push({
       id: 'attach',
       label: 'Anexar Arquivo',
       disabled: !selectedNote,
       run: () => {
-        const input = document.getElementById('attachment-input');
-        if (input instanceof HTMLInputElement) {
-          input.click();
-        }
+        if (attachmentInputRef.current) attachmentInputRef.current.click();
       },
     });
+
     actions.push({
       id: 'print',
       label: 'Imprimir Evolução Atual',
       disabled: !selectedNote,
       run: () => {
-        if (selectedNote) {
-          navigate(`/prontuarios/imprimir/${selectedNote.id}`);
-        }
+        if (selectedNote) void navigate(`/prontuarios/imprimir/${selectedNote.id}`);
       },
     });
+
     return actions;
   }, [handleCreateEvolution, navigate, selectedNote, templates]);
 
@@ -596,7 +587,8 @@ export default function Prontuarios() {
       <section className="placeholder-card">
         <h1 className="placeholder-title">Prontuários · Evolução clínica</h1>
         <p className="placeholder-description">
-          Selecione um paciente na página “Pacientes” para acessar evoluções, anexos e timeline clínica.
+          Selecione um paciente na página “Pacientes” para acessar evoluções, anexos e timeline
+          clínica.
         </p>
       </section>
     );
@@ -620,39 +612,33 @@ export default function Prontuarios() {
           </p>
         </div>
         <div className="prontuario-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => {
-                const template = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
-                if (template) {
-                  void handleCreateEvolution(template);
-                }
-              }}
-              disabled={isCreating}
-            >
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => {
+              const template = templates.find((item) => item.type === 'INITIAL') ?? templates[0];
+              if (template) void handleCreateEvolution(template);
+            }}
+            disabled={isCreating}
+          >
             Nova Evolução (1ª)
           </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                const template = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
-                if (template) {
-                  void handleCreateEvolution(template);
-                }
-              }}
-              disabled={isCreating}
-            >
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              const template = templates.find((item) => item.type === 'FOLLOW_UP') ?? templates[1];
+              if (template) void handleCreateEvolution(template);
+            }}
+            disabled={isCreating}
+          >
             Nova Evolução (Retorno)
           </button>
           <button
             type="button"
             className="ghost-button"
             onClick={() => {
-              if (selectedNote) {
-                navigate(`/prontuarios/imprimir/${selectedNote.id}`);
-              }
+              if (selectedNote) void navigate(`/prontuarios/imprimir/${selectedNote.id}`);
             }}
             disabled={!selectedNote}
           >
@@ -671,22 +657,24 @@ export default function Prontuarios() {
           </header>
           <ul className="encounter-list">
             {encounters.map((entry) => (
-                <li key={entry.encounter.id}>
-                  <button
-                    type="button"
-                    className={
-                      selectedEncounterId === entry.encounter.id
-                        ? 'encounter-item encounter-item-active'
-                        : 'encounter-item'
-                    }
-                    onClick={() => {
-                      void handleSelectEncounter(entry.encounter.id);
-                    }}
-                  >
+              <li key={entry.encounter.id}>
+                <button
+                  type="button"
+                  className={
+                    selectedEncounterId === entry.encounter.id
+                      ? 'encounter-item encounter-item-active'
+                      : 'encounter-item'
+                  }
+                  onClick={() => {
+                    void handleSelectEncounter(entry.encounter.id);
+                  }}
+                >
                   <span className="encounter-type">{entry.encounter.type}</span>
                   <span className="encounter-date">{formatDateTime(entry.encounter.date)}</span>
                   {entry.latestNote ? (
-                    <span className="encounter-note">v{entry.latestNote.version} · {entry.latestNote.summary}</span>
+                    <span className="encounter-note">
+                      v{entry.latestNote.version} · {entry.latestNote.summary}
+                    </span>
                   ) : (
                     <span className="encounter-note muted">Sem evolução registrada</span>
                   )}
@@ -711,18 +699,18 @@ export default function Prontuarios() {
 
           {notes.length > 1 ? (
             <nav className="note-tabs" aria-label="Notas do encontro">
-                {notes.map((note) => (
-                  <button
-                    type="button"
-                    key={note.id}
-                    className={selectedNote?.id === note.id ? 'note-tab note-tab-active' : 'note-tab'}
-                    onClick={() => {
-                      void handleSelectNote(note.id);
-                    }}
-                  >
-                    Evolução #{note.version}
-                  </button>
-                ))}
+              {notes.map((note) => (
+                <button
+                  type="button"
+                  key={note.id}
+                  className={selectedNote?.id === note.id ? 'note-tab note-tab-active' : 'note-tab'}
+                  onClick={() => {
+                    void handleSelectNote(note.id);
+                  }}
+                >
+                  v{note.version}
+                </button>
+              ))}
             </nav>
           ) : null}
 
@@ -737,11 +725,11 @@ export default function Prontuarios() {
 
           <div className="editor-footer">
             <label className="attachment-upload">
-                <input
-                  id="attachment-input"
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={handleAttachmentInputChange}
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleAttachmentInputChange}
                 disabled={!selectedNote || isUploading}
               />
               <span>{isUploading ? 'Enviando…' : 'Anexar arquivo'}</span>
@@ -749,7 +737,9 @@ export default function Prontuarios() {
             <button
               type="button"
               className="ghost-button"
-              onClick={() => selectedNote && navigate(`/prontuarios/imprimir/${selectedNote.id}`)}
+              onClick={() => {
+                if (selectedNote) void navigate(`/prontuarios/imprimir/${selectedNote.id}`);
+              }}
               disabled={!selectedNote}
             >
               Gerar impressão
@@ -807,20 +797,18 @@ export default function Prontuarios() {
         </section>
 
         <aside className="timeline-panel" aria-label="Timeline 360°">
-            <header className="sidebar-header">
-              <h2>Timeline 360°</h2>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  if (activePatientId) {
-                    void refreshEvents(activePatientId);
-                  }
-                }}
-              >
-                Atualizar
-              </button>
-            </header>
+          <header className="sidebar-header">
+            <h2>Timeline 360°</h2>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                if (activePatientId) void refreshEvents(activePatientId);
+              }}
+            >
+              Atualizar
+            </button>
+          </header>
           {isTimelineLoading ? <p className="muted">Carregando eventos…</p> : null}
           {!isTimelineLoading && groupedTimeline.length === 0 ? (
             <p className="muted">Nenhum evento registrado para este paciente.</p>
@@ -831,7 +819,10 @@ export default function Prontuarios() {
                 <h3>{group.date}</h3>
                 <ul>
                   {group.events.map((event) => (
-                    <li key={event.id} className={`timeline-event timeline-event-${event.type.toLowerCase()}`}>
+                    <li
+                      key={event.id}
+                      className={`timeline-event timeline-event-${event.type.toLowerCase()}`}
+                    >
                       <div>
                         <strong>{event.type}</strong>
                         <span className="muted"> · {formatDateTime(event.createdAt)}</span>
@@ -839,19 +830,22 @@ export default function Prontuarios() {
                       {typeof event.payload?.summary === 'string' ? (
                         <p>{event.payload.summary}</p>
                       ) : null}
-                        {event.type.startsWith('NOTE') && typeof event.payload?.noteId === 'string' ? (
-                          <button
-                            type="button"
-                            className="ghost-button"
-                            onClick={() => {
-                              const encounterId = typeof event.payload?.encounterId === 'string' ? event.payload.encounterId : null;
-                              if (encounterId) {
-                                void (handleSelectEncounter(encounterId).catch(() => undefined));
-                              }
-                            }}
-                          >
-                            Abrir nota
-                          </button>
+                      {event.type.startsWith('NOTE') && typeof event.payload?.noteId === 'string' ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => {
+                            const encounterId =
+                              typeof event.payload?.encounterId === 'string'
+                                ? event.payload.encounterId
+                                : null;
+                            if (encounterId) {
+                              void handleSelectEncounter(encounterId);
+                            }
+                          }}
+                        >
+                          Abrir nota
+                        </button>
                       ) : null}
                     </li>
                   ))}

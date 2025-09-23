@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 function isMissingTableError(err) {
-  return err && err.code === 'P2021';
+  return err && err.code === "P2021";
 }
 
 async function safeDelete(label, fn) {
@@ -21,18 +21,18 @@ async function safeDelete(label, fn) {
 
 async function wipe() {
   // Delete in order of dependencies to satisfy FK constraints
-  await safeDelete('Attachment', () => prisma.attachment.deleteMany({}));
-  await safeDelete('NoteVersion', () => prisma.noteVersion.deleteMany({}));
-  await safeDelete('Note', () => prisma.note.deleteMany({}));
-  await safeDelete('Encounter', () => prisma.encounter.deleteMany({}));
-  await safeDelete('Event', () => prisma.event.deleteMany({}));
-  await safeDelete('AuditLog', () => prisma.auditLog.deleteMany({}));
-  await safeDelete('Patient', () => prisma.patient.deleteMany({}));
+  await safeDelete("Attachment", () => prisma.attachment.deleteMany({}));
+  await safeDelete("NoteVersion", () => prisma.noteVersion.deleteMany({}));
+  await safeDelete("Note", () => prisma.note.deleteMany({}));
+  await safeDelete("Encounter", () => prisma.encounter.deleteMany({}));
+  await safeDelete("Event", () => prisma.event.deleteMany({}));
+  await safeDelete("AuditLog", () => prisma.auditLog.deleteMany({}));
+  await safeDelete("Patient", () => prisma.patient.deleteMany({}));
 }
 
 async function main() {
   await wipe();
-  console.log('Database wiped.');
+  console.log("Database wiped.");
 }
 
 main()

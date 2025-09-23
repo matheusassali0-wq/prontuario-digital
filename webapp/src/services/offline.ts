@@ -4,9 +4,10 @@ export function assertOnlineOrQueueAttachment(meta: Record<string, unknown>) {
     const arr = JSON.parse(localStorage.getItem(key) || '[]');
     arr.push({ ...meta, queuedAt: new Date().toISOString() });
     localStorage.setItem(key, JSON.stringify(arr));
-    const e = new Error('OFFLINE_ATTACHMENT_QUEUED');
-    // @ts-expect-error
-    e.code = 'OFFLINE_ATTACHMENT_QUEUED';
+    type OfflineError = Error & { code: 'OFFLINE_ATTACHMENT_QUEUED' };
+    const e: OfflineError = Object.assign(new Error('OFFLINE_ATTACHMENT_QUEUED'), {
+      code: 'OFFLINE_ATTACHMENT_QUEUED' as const,
+    });
     throw e;
   }
 }

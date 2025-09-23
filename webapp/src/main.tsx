@@ -11,9 +11,7 @@ const registerServiceWorker = () => {
     return;
   }
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .catch(() => undefined);
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined);
   });
 };
 

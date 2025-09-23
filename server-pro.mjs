@@ -52,7 +52,7 @@ app.get("/api/pacientes", async (req, res) => {
     ? items.filter(
         (p) =>
           (p.nome || "").toLowerCase().includes(q) ||
-          (p.doc || "").toLowerCase().includes(q)
+          (p.doc || "").toLowerCase().includes(q),
       )
     : items;
   res.json({ ok: true, items: filtered });
@@ -143,7 +143,7 @@ app.use("/app/assets", express.static(path.join(pub, "app", "assets")));
 app.use("/assets", express.static(path.join(pub, "assets")));
 app.get(["/", "/app"], (req, res) => res.redirect("/app/"));
 app.get("/app/*", (req, res) =>
-  res.sendFile(path.join(pub, "app", "index.html"))
+  res.sendFile(path.join(pub, "app", "index.html")),
 );
 
 const PORT = 3030;

@@ -40,7 +40,9 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const isHtmlNavigation = (request) => request.mode === 'navigate' || (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'));
+const isHtmlNavigation = (request) =>
+  request.mode === 'navigate' ||
+  (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'));
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;

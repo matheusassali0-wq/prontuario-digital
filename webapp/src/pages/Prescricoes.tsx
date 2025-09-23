@@ -10,7 +10,13 @@ import {
 } from '../services/prescriptions';
 import { useActivePatientStore } from '../stores/patientStore';
 
-const emptyItem = (): PrescriptionItem => ({ nome: '', dose: '', via: '', horario: '', observacao: '' });
+const emptyItem = (): PrescriptionItem => ({
+  nome: '',
+  dose: '',
+  via: '',
+  horario: '',
+  observacao: '',
+});
 
 const formatDateTime = (value: string) => {
   if (!value) return '';
@@ -52,7 +58,8 @@ const formatPrintItemsA5 = (items: (PrescriptionItem & { ordem: number })[]) =>
     .join('');
 
 const openPrintWindow = async (record: PrescriptionRecord) => {
-  const templatePath = record.formato === 'A5' ? '/assets/print/receita_a5.html' : '/assets/print/receita_a4.html';
+  const templatePath =
+    record.formato === 'A5' ? '/assets/print/receita_a5.html' : '/assets/print/receita_a4.html';
   const response = await fetch(templatePath);
   const html = await response.text();
   const filled = html
@@ -103,14 +110,18 @@ export default function Prescricoes() {
     }
     listPrescriptions(activePatientId)
       .then(setHistory)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Falha ao carregar prescrições'));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Falha ao carregar prescrições'),
+      );
   }, [activePatientId]);
 
   const canUseSso = status?.online && status.mode === 'sso_birdid';
 
   const handleAddItem = () => setItems((current) => [...current, emptyItem()]);
   const handleRemoveItem = (index: number) =>
-    setItems((current) => current.filter((_, idx) => idx !== index && (idx !== 0 || current.length > 1)));
+    setItems((current) =>
+      current.filter((_, idx) => idx !== index && (idx !== 0 || current.length > 1)),
+    );
 
   const updateItem = (index: number, field: keyof PrescriptionItem, value: string) => {
     setItems((current) =>
@@ -216,14 +227,21 @@ export default function Prescricoes() {
             <div className="field-grid">
               <label>
                 Formato
-                <select value={format} onChange={(event) => setFormat(event.target.value as 'A4' | 'A5')}>
+                <select
+                  value={format}
+                  onChange={(event) => setFormat(event.target.value as 'A4' | 'A5')}
+                >
                   <option value="A4">A4 (consultório)</option>
                   <option value="A5">A5 (talonário)</option>
                 </select>
               </label>
               <label>
                 CID (opcional)
-                <input value={cid} onChange={(event) => setCid(event.target.value)} placeholder="CID-10" />
+                <input
+                  value={cid}
+                  onChange={(event) => setCid(event.target.value)}
+                  placeholder="CID-10"
+                />
               </label>
             </div>
             <label>
@@ -285,7 +303,12 @@ export default function Prescricoes() {
         <article className="card">
           <h2>Integração Memed (SSO)</h2>
           <p>{statusLabel}</p>
-          <button type="button" className="primary" onClick={() => void handleSso()} disabled={!canUseSso}>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => void handleSso()}
+            disabled={!canUseSso}
+          >
             Abrir Memed via Bird ID
           </button>
         </article>
@@ -299,8 +322,12 @@ export default function Prescricoes() {
           <h2>Histórico de prescrições</h2>
           <p>Listagem das receitas vinculadas ao paciente selecionado.</p>
         </header>
-        {!activePatientId && <p className="empty-state">Selecione um paciente na aba Pacientes para visualizar.</p>}
-        {activePatientId && history.length === 0 && <p className="empty-state">Nenhuma prescrição emitida ainda.</p>}
+        {!activePatientId && (
+          <p className="empty-state">Selecione um paciente na aba Pacientes para visualizar.</p>
+        )}
+        {activePatientId && history.length === 0 && (
+          <p className="empty-state">Nenhuma prescrição emitida ainda.</p>
+        )}
         {history.length > 0 && (
           <table className="history-table">
             <thead>
@@ -320,7 +347,11 @@ export default function Prescricoes() {
                   <td>{formatDateTime(record.criadoEm)}</td>
                   <td>{record.cid || '—'}</td>
                   <td>
-                    <button type="button" className="ghost" onClick={() => void openPrintWindow(record)}>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => void openPrintWindow(record)}
+                    >
                       Imprimir
                     </button>
                   </td>
