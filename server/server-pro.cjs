@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -100,9 +101,74 @@ const saveAttachmentFile = async ({
 const resolveAttachmentPath = (relativePath) =>
   path.resolve(uploadsBaseDir, relativePath);
 
+const SENSITIVE_KEYS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'password',
+  'client_secret',
+  'id_token',
+  'access_token',
+]);
+
+const redactSensitive = (value) => {
+  if (typeof value === 'string') {
+    return '***REDACTED***';
+  }
+  if (Buffer.isBuffer(value)) {
+    return '<redacted-buffer>';
+  }
+  if (value && typeof value === 'object') {
+    return '<redacted-object>';
+  }
+  return '<redacted>';
+};
+
+const sanitizeLogPayload = (payload) => {
+  if (!payload || typeof payload === 'number' || typeof payload === 'boolean') {
+    return payload;
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  if (payload instanceof Error) {
+    return payload.stack ?? payload.message;
+  }
+  if (Array.isArray(payload)) {
+    return payload.map((item) => sanitizeLogPayload(item));
+  }
+  if (typeof payload === 'object') {
+    return Object.fromEntries(
+      Object.entries(payload).map(([key, value]) => {
+        if (SENSITIVE_KEYS.has(key.toLowerCase())) {
+          return [key, redactSensitive(value)];
+        }
+        return [key, sanitizeLogPayload(value)];
+      }),
+    );
+  }
+  return payload;
+};
+
+const formatLogMessage = (message) => {
+  const sanitized = sanitizeLogPayload(message);
+  if (sanitized === undefined || sanitized === null) {
+    return '';
+  }
+  if (typeof sanitized === 'string') {
+    return sanitized;
+  }
+  try {
+    return JSON.stringify(sanitized);
+  } catch {
+    return String(sanitized);
+  }
+};
+
 const writeInfo = (message) => {
-  if (message) {
-    process.stdout.write(`${message}\n`);
+  const formatted = formatLogMessage(message);
+  if (formatted) {
+    process.stdout.write(`${formatted}\n`);
   }
 };
 
@@ -114,6 +180,7 @@ const writeError = (error) => {
         ? error
         : JSON.stringify(error);
   process.stderr.write(`${output}\n`);
+
 };
 
 const { httpLogger, logger } = (() => {
@@ -144,6 +211,10 @@ const apiLimiter = rateLimit({
   limit: 120,
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userId = req.header('x-user-id') ?? 'anon';
+    return `${req.ip}:${userId}`;
+  },
 });
 
 const isProd =
@@ -639,6 +710,38 @@ const prescriptionCreateSchema = Contracts?.PrescriptionCreateSchema
       })
       .strict();
 
+const settingBodySchema = z
+  .object({
+    value: z.any(),
+  })
+  .strict();
+
+const secretBodySchema = z
+  .object({
+    value: z.string().trim().min(1, 'Valor obrigatório'),
+  })
+  .strict();
+
+const flagBodySchema = z
+  .object({
+    enabled: z.boolean(),
+  })
+  .strict();
+
+const settingsImportSchema = z
+  .object({
+    settings: z.record(z.any()).default({}),
+    flags: z.record(z.boolean()).optional(),
+  })
+  .strict();
+
+const ssoTestSchema = z
+  .object({
+    issuer: z.string().trim().url().max(255),
+    redirectUri: z.string().trim().url().max(255),
+  })
+  .strict();
+
 const querySchema = z
   .object({
     query: z.string().trim().optional(),
@@ -684,7 +787,7 @@ const appendAuditLog = async ({ who, what, meta }) => {
   const baseEntry = {
     who: who ?? null,
     what,
-    when: new Date(),
+    when,
     hashPrev: previousHash,
     meta: meta ?? {},
   };

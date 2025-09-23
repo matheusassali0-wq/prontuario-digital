@@ -47,6 +47,26 @@ model AuditLog {
   @@index([when])
 }
 
+model Setting {
+  key       String   @id
+  value     Json?
+  isSecret  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
+model ApiSecret {
+  key       String   @id
+  cipher    Bytes
+  nonce     Bytes
+  updatedAt DateTime @updatedAt
+}
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
 model Encounter {
   id        String   @id @default(cuid())
   patientId String
