@@ -1,9 +1,19 @@
-const metrics = [
-  { label: 'Total de pacientes', value: '128', footnote: 'Última atualização às 08:15' },
-  { label: 'Consultas hoje', value: '12', footnote: '3 em andamento agora' },
-  { label: 'Prescrições ativas', value: '48', footnote: 'Validadas nas últimas 72h' },
-  { label: 'Pendências críticas', value: '2', footnote: 'Revisar solicitações de exame' },
-];
+import { useEffect, useMemo, useState } from 'react';
+import { requestJson } from '../utils/http';
+
+type Metrics = {
+  totalPatients: number;
+  encountersToday: number;
+  activePrescriptions: number;
+  allergyAlerts: number;
+};
+
+const defaultMetrics: Metrics = {
+  totalPatients: 0,
+  encountersToday: 0,
+  activePrescriptions: 0,
+  allergyAlerts: 0,
+};
 
 const quickActions = [
   {
@@ -21,6 +31,44 @@ const quickActions = [
 ];
 
 export default function Dashboard() {
+  const [data, setData] = useState<Metrics>(defaultMetrics);
+  const [lastUpdated, setLastUpdated] = useState<string>('—');
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const m = await requestJson<Metrics>('/v1/patients/metrics');
+        if (!mounted) return;
+        setData(m);
+        const now = new Date();
+        setLastUpdated(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        setIsOnline(true);
+      } catch {
+        if (!mounted) return;
+        // keep previous values, indicate offline
+        setIsOnline(false);
+      }
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const metrics = useMemo(
+    () => [
+      { label: 'Total de pacientes', value: String(data.totalPatients), footnote: `Última atualização às ${lastUpdated}` },
+      { label: 'Consultas hoje', value: String(data.encountersToday), footnote: isOnline ? 'Dados em tempo real' : 'Offline — mostrando último valor' },
+      { label: 'Prescrições ativas', value: String(data.activePrescriptions), footnote: 'Validadas nas últimas 72h' },
+      { label: 'Pendências críticas', value: String(data.allergyAlerts), footnote: 'Revisar solicitações de exame' },
+    ],
+    [data, lastUpdated, isOnline],
+  );
+
   return (
     <div className="dashboard-view">
       <section className="page-header" aria-labelledby="dashboard-title">
@@ -54,10 +102,10 @@ export default function Dashboard() {
             <span>Status Bird ID</span>
             <span className="status-indicator">
               <span className="status-dot" aria-hidden="true"></span>
-              Online
+              {isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
-          <p className="card-footnote">SSO conectado. Último check às 08:12 (GMT-3).</p>
+          <p className="card-footnote">{isOnline ? `SSO conectado. Último check às ${lastUpdated} (GMT-3).` : 'Sem conexão — tentando novamente...'}</p>
           <button type="button" className="action-card" style={{ borderStyle: 'solid' }}>
             <span className="action-title">Gerenciar credenciais</span>
             <span className="action-description">Abrir configurações de integração Bird ID.</span>

@@ -1,48 +1,67 @@
 {
   "name": "prontuario",
   "private": true,
+  "version": "1.0.0",
+  "description": "**Conteúdo:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (índice HMAC n‑gram)** e **rate limit**.",
+  "type": "module",
+  "main": "app.js",
   "scripts": {
-    "dev": "node ./server/server-pro.cjs",
+    "dev": "node ./scripts/doctor-env.mjs && node ./server/server-pro.cjs",
+    "dev:noguard": "DISABLE_ENV_GUARD=1 node ./scripts/doctor-env.mjs || true; node ./server/server-pro.cjs",
+    "dev:up": "bash ./scripts/dev-up.sh",
+    "dev:down": "bash ./scripts/dev-down.sh",
+    "dev:repair": "bash ./scripts/dev-repair.sh",
     "lint": "eslint .",
     "typecheck": "tsc -p . --noEmit",
     "build": "tsc -p . --noEmit",
     "test": "node --test tests",
     "format": "prettier -c .",
+    "contracts:build": "tsc -p ./contracts/tsconfig.json",
+    "webapp:dev": "pnpm --dir webapp run dev",
+    "webapp:build": "pnpm --dir webapp run build",
+    "webapp:preview": "pnpm --dir webapp run preview",
+    "webapp:lint": "pnpm --dir webapp run lint",
+    "webapp:typecheck": "pnpm --dir webapp run typecheck",
+    "reset:demo-files": "node ./scripts/reset-demo.mjs",
+    "reset:db": "node ./scripts/wipe-db.mjs",
+    "reset:all": "npm run reset:demo-files && npm run reset:db",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:migrate:dev": "prisma migrate dev"
+    "prisma:migrate:dev": "prisma migrate dev",
+    "start:prod": "node ./scripts/doctor-env.mjs && pnpm run contracts:build && pnpm run webapp:build && pnpm run prisma:migrate && node ./server/server-pro.cjs",
+    "smoke:e2e": "node ./scripts/smoke-e2e.mjs",
+    "review:up": "PR_NUMBER=${PR_NUMBER:-local} API_PORT=${API_PORT:-3030} WEB_PORT=${WEB_PORT:-5173} docker compose -f docker-compose.review.yml --profile review up -d --pull always",
+    "review:down": "PR_NUMBER=${PR_NUMBER:-local} docker compose -f docker-compose.review.yml --profile review down -v",
+    "review:logs": "PR_NUMBER=${PR_NUMBER:-local} docker compose -f docker-compose.review.yml --profile review logs -f",
+    "test:sequence": "node ./scripts/test-sequence.mjs",
+    "otel:status": "node -e \"try{require('./server/otel.cjs').status()}catch(e){console.log('otel: disabled')}\""
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.1.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
+    "@opentelemetry/sdk-node": "^0.55.0",
     "@prisma/client": "^5.22.0",
+    "@prisma/instrumentation": "^5.22.0",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "hash-wasm": "^4.12.0",
-    "multer": "^1.4.5-lts.2",
     "helmet": "^7.2.0",
+    "multer": "^1.4.5-lts.2",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
     "pg": "^8.13.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
     "zod": "^3.24.1"
   },
-  "version": "1.0.0",
-  "description": "**Conte\u00fado:** Frontend (public/) + Backend (server/) com HTTPS (mkcert), COOP/COEP (crossOriginIsolated), assinatura de integridade (manifesto), **vault E2EE** (/vault/put, /vault/get), **MFA (TOTP)**, **KDF Argon2id (WASM) com fallback PBKDF2**, **busca por substring (\u00edndice HMAC n\u2011gram)** e **rate limit**.",
-  "main": "app.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://YOUR_TOKEN@github.com/MatheusAssali/prontuario-digital.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/MatheusAssali/prontuario-digital/issues"
-  },
-  "homepage": "https://github.com/MatheusAssali/prontuario-digital#readme",
   "devDependencies": {
     "@eslint/js": "^9.35.0",
+    "@playwright/test": "^1.48.0",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
@@ -53,5 +72,13 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.44.0"
   },
-  "type": "module"
+  "repository": {
+    "type": "git",
+    "url": "git+https://YOUR_TOKEN@github.com/MatheusAssali/prontuario-digital.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatheusAssali/prontuario-digital/issues"
+  },
+  "homepage": "https://github.com/MatheusAssali/prontuario-digital#readme",
+  "license": "ISC"
 }

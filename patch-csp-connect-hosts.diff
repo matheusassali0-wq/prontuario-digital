@@ -1,0 +1,57 @@
+diff --git a/server/server-pro.cjs b/server/server-pro.cjs
+index e5f23f1..a3db9f4 100644
+--- a/server/server-pro.cjs
++++ b/server/server-pro.cjs
+@@ -36,12 +36,33 @@ function parseCookies(h) {
+ }
+ function randomToken(n = 32) { return crypto.randomBytes(n).toString('hex'); }
+ function isBrowserContext(req) {
+   const ua = (req.headers['user-agent'] || '').toLowerCase();
+   const sfs = req.headers['sec-fetch-site'];
+   return Boolean(sfs) || /mozilla|chrome|safari|firefox|edg/.test(ua);
+ }
+-function setSecurityHeaders(req, res) {
+-  const prod = process.env.NODE_ENV === 'production';
+-  const connectDev = " ws: http://localhost:5173 http://127.0.0.1:5173";
+-  const connectProd = "";
+-  const connectMemed = " https://app.memed.com.br https://*.memed.com.br https://cdn.memed.com.br";
+-  const connectBird = " https://birdid.example.com";
++function setSecurityHeaders(req, res) {
++  const prod = process.env.NODE_ENV === 'production';
++  // Hosts padrão (podem ser sobrescritos por ENV)
++  const MEMED_DEFAULT = [
++    'https://memed.com.br',
++    'https://app.memed.com.br',
++    'https://validador.memed.com.br',
++    'https://account.memed.com.br'
++  ];
++  const BIRDID_DEFAULT = [
++    'https://api.birdid.com.br',     // OAuth2/Token e APIs públicas
++    'https://portal.birdid.com.br',  // Portal / gestão
++    'https://painel.birdid.com.br'   // Painel / login
++  ];
++  // Permitir override via ENV (separado por espaço)
++  const memedHosts = (process.env.MEMED_CONNECT || MEMED_DEFAULT.join(' '));
++  const birdHosts  = (process.env.BIRDID_CONNECT || BIRDID_DEFAULT.join(' '));
++  const extraHosts = (process.env.CSP_CONNECT_EXTRA || ''); // ex.: "https://sandbox.memed.com.br"
++  // Em dev liberar Vite/WS
++  const devHosts = prod ? '' : ' ws: http://localhost:5173 http://127.0.0.1:5173';
+   const csp = [
+     "default-src 'self'",
+     "base-uri 'self'",
+     "frame-ancestors 'none'",
+     "form-action 'self'",
+     "img-src 'self' data: blob:",
+     "font-src 'self'",
+     "style-src 'self' 'unsafe-inline'",
+-    "script-src 'self'",
+-    "connect-src 'self'" + (prod ? connectProd : connectDev) + connectMemed + connectBird,
++    "script-src 'self'",
++    "connect-src 'self' " + devHosts + ' ' + memedHosts + ' ' + birdHosts + ' ' + extraHosts,
+     "object-src 'none'"
+   ].join('; ');
+   res.setHeader('Content-Security-Policy', csp);
+   res.setHeader('Referrer-Policy', 'no-referrer');
+   res.setHeader('X-Content-Type-Options', 'nosniff');
+   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+ }

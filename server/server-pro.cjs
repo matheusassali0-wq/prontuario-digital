@@ -1,36 +1,44 @@
-/* eslint-env node */
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
-const fsPromises = require('fs/promises');
-const multer = require('multer');
-const { PrismaClient } = require('@prisma/client');
-const { z } = require('zod');
-const {
-  normalizeRole,
-  roleAtLeast,
-  encryptSecret,
-  validateSettingPayload,
-  validateSecretPayload,
-  validateFeatureFlagPayload,
-  filterSettingsForRole,
-  compareSettings,
-  maskSecretPreview,
-  SECRET_SCHEMAS,
-} = require('./settings-service.cjs');
+
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
+const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
+const fsPromises = require("fs/promises");
+const multer = require("multer");
+const { PrismaClient } = require("@prisma/client");
+const { URL } = require("url");
+const { z } = require("zod");
+// Import shared contracts (prefer package scope then dist/src fallback)
+let Contracts;
+try {
+  Contracts = require("@prontuario/contracts");
+} catch {
+  try {
+    Contracts = require("../contracts/dist");
+  } catch {
+    try {
+      Contracts = require("../contracts/src");
+    } catch {
+      Contracts = {};
+    }
+  }
+}
 
 const prisma = new PrismaClient();
-const uploadsBaseDir = path.resolve(__dirname, 'uploads');
+const uploadsBaseDir = path.resolve(__dirname, "uploads");
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
-const allowedAttachmentMimes = new Set(['application/pdf', 'image/png', 'image/jpeg']);
+const allowedAttachmentMimes = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+]);
 
 const ensureDirectory = async (targetPath) => {
   if (!fs.existsSync(targetPath)) {
@@ -39,45 +47,59 @@ const ensureDirectory = async (targetPath) => {
 };
 
 const sanitizeFileName = (rawName) => {
-  if (!rawName) return 'arquivo';
-  return rawName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_\-.]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 120) || 'arquivo';
+  if (!rawName) return "arquivo";
+  return (
+    rawName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_\-.]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 120) || "arquivo"
+  );
 };
 
 const formatYearMonth = (date) => {
   const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
   return `${year}${month}`;
 };
 
-const saveAttachmentFile = async ({ patientId, noteId, originalName, buffer, mimeType }) => {
+const saveAttachmentFile = async ({
+  patientId,
+  noteId,
+  originalName,
+  buffer,
+  mimeType,
+}) => {
   const sanitized = sanitizeFileName(originalName);
   const extension = path.extname(sanitized).toLowerCase();
-  if (!['.pdf', '.png', '.jpg', '.jpeg'].includes(extension)) {
-    throw new Error('Extensão de arquivo não suportada');
+  if (![".pdf", ".png", ".jpg", ".jpeg"].includes(extension)) {
+    throw new Error("Extensão de arquivo não suportada");
   }
   const baseName = sanitized.slice(0, sanitized.length - extension.length);
-  if (baseName.includes('.')) {
-    throw new Error('Nome de arquivo inválido (dupla extensão)');
+  if (baseName.includes(".")) {
+    throw new Error("Nome de arquivo inválido (dupla extensão)");
   }
   if (!allowedAttachmentMimes.has(mimeType)) {
-    throw new Error('Tipo de arquivo não permitido');
+    throw new Error("Tipo de arquivo não permitido");
   }
   const now = new Date();
-  const folder = path.join(uploadsBaseDir, patientId, noteId, formatYearMonth(now));
+  const folder = path.join(
+    uploadsBaseDir,
+    patientId,
+    noteId,
+    formatYearMonth(now)
+  );
   await ensureDirectory(folder);
-  const finalName = `${baseName || 'arquivo'}-${now.getTime()}${extension}`;
+  const finalName = `${baseName || "arquivo"}-${now.getTime()}${extension}`;
   const targetPath = path.join(folder, finalName);
   await fsPromises.writeFile(targetPath, buffer);
   return path.relative(uploadsBaseDir, targetPath);
 };
 
-const resolveAttachmentPath = (relativePath) => path.resolve(uploadsBaseDir, relativePath);
+const resolveAttachmentPath = (relativePath) =>
+  path.resolve(uploadsBaseDir, relativePath);
 
 const SENSITIVE_KEYS = new Set([
   'authorization',
@@ -151,136 +173,43 @@ const writeInfo = (message) => {
 };
 
 const writeError = (error) => {
-  const formatted = formatLogMessage(error);
-  if (formatted) {
-    process.stderr.write(`${formatted}\n`);
-  }
+  const output =
+    error instanceof Error
+      ? (error.stack ?? error.message)
+      : typeof error === "string"
+        ? error
+        : JSON.stringify(error);
+  process.stderr.write(`${output}\n`);
+
 };
 
-const isProduction = process.env.NODE_ENV === 'production';
-
-const parseOrigin = (input) => {
-  if (!input) return null;
+const { httpLogger, logger } = (() => {
   try {
-    const url = new URL(input);
-    return url.origin;
+    return require("./logger.cjs");
   } catch {
-    return null;
+    return { httpLogger: (_req, _res, next) => next(), logger: console };
   }
-};
-
-const buildCspDirectives = () => {
-  const directives = {
-    "default-src": ["'self'"],
-    "script-src": ["'self'"],
-    "style-src": ["'self'"],
-    "img-src": ["'self'", 'data:'],
-    "connect-src": ["'self'"],
-    "frame-ancestors": ["'none'"],
-    "base-uri": ["'self'"],
-    "form-action": ["'self'"],
-    "upgrade-insecure-requests": [],
-  };
-
-  const birdIdOrigin = parseOrigin(process.env.BIRDID_ISSUER);
-  const memedSsoOrigin = parseOrigin(process.env.MEMED_SSO_URL);
-  if (birdIdOrigin) {
-    directives['connect-src'].push(birdIdOrigin);
+})();
+const metrics = (() => {
+  try {
+    return require("./metrics.cjs");
+  } catch {
+    return { observe: () => {}, snapshot: () => ({}) };
   }
-  if (memedSsoOrigin) {
-    directives['connect-src'].push(memedSsoOrigin);
-    directives['form-action'].push(memedSsoOrigin);
-  }
-  if (!isProduction) {
-    directives['style-src'].push("'unsafe-inline'");
-    directives['connect-src'].push('ws:');
-  }
-  return directives;
-};
-
-const parseCookies = (headerValue) => {
-  if (!headerValue || typeof headerValue !== 'string') {
-    return {};
-  }
-  return headerValue.split(';').reduce((acc, pair) => {
-    const [name, ...rest] = pair.split('=');
-    if (!name) return acc;
-    const key = name.trim();
-    const value = rest.join('=').trim();
-    acc[key] = decodeURIComponent(value);
-    return acc;
-  }, {});
-};
-
-const appendCookie = (res, cookie) => {
-  const existing = res.getHeader('Set-Cookie');
-  if (!existing) {
-    res.setHeader('Set-Cookie', cookie);
-    return;
-  }
-  if (Array.isArray(existing)) {
-    res.setHeader('Set-Cookie', [...existing, cookie]);
-    return;
-  }
-  res.setHeader('Set-Cookie', [existing, cookie]);
-};
-
-const setCookie = (res, name, value, { secure = false, sameSite = 'Strict', httpOnly = false, path: cookiePath = '/', maxAge } = {}) => {
-  const segments = [`${name}=${encodeURIComponent(value)}`, `Path=${cookiePath}`, `SameSite=${sameSite}`];
-  if (httpOnly) {
-    segments.push('HttpOnly');
-  }
-  if (secure) {
-    segments.push('Secure');
-  }
-  if (typeof maxAge === 'number') {
-    segments.push(`Max-Age=${maxAge}`);
-  }
-  appendCookie(res, segments.join('; '));
-};
-
-const CSRF_COOKIE_NAME = 'csrf';
-
-const requireCsrf = (req, res, next) => {
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
-    return next();
-  }
-  const cookies = parseCookies(req.headers?.cookie);
-  const cookieToken = cookies[CSRF_COOKIE_NAME];
-  const headerToken = req.header('x-csrf-token');
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    return res.status(403).json({
-      type: 'about:blank',
-      title: 'CSRF token inválido',
-      status: 403,
-      detail: 'Revalide o formulário antes de enviar novamente.',
-    });
-  }
-  return next();
-};
-
-const requireRole = (role) => (req, res, next) => {
-  const currentRole = req.user?.role ?? 'Atendimento';
-  if (!roleAtLeast(currentRole, role)) {
-    return res.status(403).json({
-      type: 'about:blank',
-      title: 'Acesso negado',
-      status: 403,
-      detail: `Requer perfil ${role}.`,
-    });
-  }
-  return next();
-};
+})();
+try {
+  require("./otel.cjs").start();
+} catch {}
 
 const app = express();
-app.disable('x-powered-by');
+app.disable("x-powered-by");
 
 ensureDirectory(uploadsBaseDir).catch(() => undefined);
 
 const apiLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 300,
-  standardHeaders: 'draft-7',
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: (req) => {
     const userId = req.header('x-user-id') ?? 'anon';
@@ -288,171 +217,498 @@ const apiLimiter = rateLimit({
   },
 });
 
-const sensitiveLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 50,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    const userId = req.header('x-user-id') ?? 'anon';
-    return `${req.ip}:${userId}`;
-  },
-});
+const isProd =
+  String(process.env.NODE_ENV || "").toLowerCase() === "production";
 
-const appBaseOrigin = parseOrigin(process.env.APP_BASE_URL || 'http://localhost:5173');
+// Build connect-src list from ENV, with sensible defaults for Memed and Bird ID (Soluti)
+const connectSrc = ["'self'"];
+if (!isProd) {
+  // Allow Vite dev server and WebSockets in non-production
+  connectSrc.push("ws:", "http://localhost:5173", "http://127.0.0.1:5173");
+}
+// Defaults (can be overridden via ENV as space-separated lists)
+const MEMED_DEFAULT = [
+  "https://memed.com.br",
+  "https://app.memed.com.br",
+  "https://validador.memed.com.br",
+  "https://account.memed.com.br",
+];
+const BIRDID_DEFAULT = [
+  "https://api.birdid.com.br",
+  "https://portal.birdid.com.br",
+  "https://painel.birdid.com.br",
+];
+const splitHosts = (s) =>
+  String(s || "")
+    .split(/\s+/)
+    .filter(Boolean);
+const memedHosts = splitHosts(
+  process.env.MEMED_CONNECT || MEMED_DEFAULT.join(" ")
+);
+const birdHosts = splitHosts(
+  process.env.BIRDID_CONNECT || BIRDID_DEFAULT.join(" ")
+);
+const extraHosts = splitHosts(process.env.CSP_CONNECT_EXTRA || "");
+connectSrc.push(...memedHosts, ...birdHosts, ...extraHosts);
 
 app.use(
   helmet({
     contentSecurityPolicy: {
-      useDefaults: false,
-      directives: buildCspDirectives(),
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        // connect-src assembled above from ENV with defaults
+        connectSrc,
+        objectSrc: ["'none'"],
+      },
     },
-    crossOriginResourcePolicy: { policy: 'same-origin' },
-  }),
+    referrerPolicy: { policy: "no-referrer" },
+    crossOriginResourcePolicy: { policy: "same-origin" },
+  })
 );
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on("finish", () => metrics.observe(req, Date.now() - t0));
+  next();
+});
+app.use(httpLogger);
 app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: "1mb" }));
 app.use(apiLimiter);
-app.use((req, res, next) => {
-  const roleHeader = req.header('x-user-role');
-  req.user = {
-    id: req.header('x-user-id') ?? null,
-    role: normalizeRole(roleHeader),
+// p99 metrics endpoint
+app.get(["/api/metrics", "/api/v1/metrics"], (_req, res) =>
+  res.json({ p: metrics.snapshot() })
+);
+
+// Idempotency TTL (seconds); can be overridden via env IDEMP_TTL_SEC
+const IDEMP_TTL_SEC = Number(process.env.IDEMP_TTL_SEC || 600);
+
+// Idempotency with optional Redis (REDIS_URL), fallback in-memory
+let idempBackend = null;
+let useRedis = false;
+if (process.env.REDIS_URL) {
+  try {
+    const { createClient } = require("redis");
+    const client = createClient({ url: process.env.REDIS_URL });
+    client.on("error", (err) => writeError(err));
+    client.connect().catch((e) => writeError(e));
+    idempBackend = client;
+    useRedis = true;
+    writeInfo("Idempotency: Redis backend enabled");
+  } catch {
+    writeError("Redis not available, using in-memory idempotency.");
+  }
+}
+const idempStore = new Map(); // key -> { hash, status, body, expiresAt }
+require("timers")
+  .setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of idempStore.entries()) {
+      if (v.expiresAt <= now) idempStore.delete(k);
+    }
+  }, 30_000)
+  .unref();
+
+const idempotencyMiddleware = (routeKey) => async (req, res, next) => {
+  try {
+    const key = req.get("Idempotency-Key");
+    const hash = req.get("X-Payload-Hash");
+    if (!key || !hash) return next();
+    const composite = `${routeKey}:${key}`;
+
+    const readExisting = async () =>
+      useRedis && idempBackend
+        ? JSON.parse((await idempBackend.get(composite)) || "null")
+        : idempStore.get(composite) || null;
+    const writeRecord = async (value) =>
+      useRedis && idempBackend
+        ? idempBackend.set(composite, JSON.stringify(value), {
+            EX: IDEMP_TTL_SEC,
+          })
+        : idempStore.set(composite, value);
+
+    const existing = await readExisting();
+    if (existing) {
+      if (existing.hash !== hash) {
+        return res.status(409).json({
+          type: "about:blank",
+          title: "Idempotência em conflito",
+          status: 409,
+          detail: "Chave já usada para payload diferente.",
+        });
+      }
+      if (existing.status && existing.body !== undefined) {
+        res.status(existing.status);
+        return res.json(existing.body);
+      }
+    }
+    await writeRecord({
+      hash,
+      status: null,
+      body: undefined,
+      expiresAt: Date.now() + IDEMP_TTL_SEC * 1000,
+    });
+    const originalJson = res.json.bind(res);
+    res.json = (payload) => {
+      const record = {
+        hash,
+        status: res.statusCode || 200,
+        body: payload,
+        expiresAt: Date.now() + IDEMP_TTL_SEC * 1000,
+      };
+      void writeRecord(record).catch(writeError);
+      return originalJson(payload);
+    };
+    next();
+  } catch (e) {
+    next(e);
+  }
+};
+
+// Optional CSRF double-submit (enable with ENABLE_CSRF=1)
+if (process.env.ENABLE_CSRF === "1") {
+  const parseCookies = (cookieHeader) => {
+    const out = {};
+    if (!cookieHeader) return out;
+    String(cookieHeader)
+      .split(";")
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .forEach((pair) => {
+        const idx = pair.indexOf("=");
+        if (idx > -1) {
+          const k = decodeURIComponent(pair.slice(0, idx).trim());
+          const v = decodeURIComponent(pair.slice(idx + 1).trim());
+          out[k] = v;
+        }
+      });
+    return out;
   };
-  res.locals.user = req.user;
-  next();
+
+  app.use((req, res, next) => {
+    const cookies = parseCookies(req.headers.cookie);
+    let token = cookies["csrf-token"];
+    if (!token) {
+      token = crypto.randomBytes(16).toString("hex");
+      const attrs = ["Path=/", "SameSite=Lax"];
+      if (isProd) attrs.push("Secure");
+      res.setHeader("Set-Cookie", `csrf-token=${token}; ${attrs.join("; ")}`);
+    }
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+      const header = req.get("x-csrf-token");
+      if (header !== token) {
+        return res.status(403).json({
+          type: "about:blank",
+          title: "CSRF inválido",
+          status: 403,
+          detail: "Token CSRF ausente ou inválido.",
+        });
+      }
+    }
+    next();
+  });
+}
+
+// Browser-friendly CSRF enforcement (double-submit) always available endpoint to fetch token
+app.get(["/api/csrf", "/api/v1/csrf"], (req, res) => {
+  // Reuse existing optional CSRF middleware token mechanics if enabled; otherwise mint a token here
+  const parseCookies = (cookieHeader) => {
+    const out = {};
+    if (!cookieHeader) return out;
+    String(cookieHeader)
+      .split(";")
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .forEach((pair) => {
+        const idx = pair.indexOf("=");
+        if (idx > -1) {
+          const k = decodeURIComponent(pair.slice(0, idx).trim());
+          const v = decodeURIComponent(pair.slice(idx + 1).trim());
+          out[k] = v;
+        }
+      });
+    return out;
+  };
+  const cookies = parseCookies(req.headers.cookie);
+  let token = cookies["csrf-token"] || cookies["csrf"];
+  if (!token) {
+    token = crypto.randomBytes(16).toString("hex");
+    const attrs = ["Path=/", "SameSite=Lax"];
+    if (isProd) attrs.push("Secure");
+    res.setHeader("Set-Cookie", `csrf=${token}; ${attrs.join("; ")}`);
+  }
+  res.json({ csrfToken: token });
 });
 
-app.use((req, res, next) => {
-  const cookies = parseCookies(req.headers?.cookie);
-  let token = cookies[CSRF_COOKIE_NAME];
-  if (!token) {
-    token = crypto.randomBytes(16).toString('hex');
-    setCookie(res, CSRF_COOKIE_NAME, token, {
-      secure: isProduction,
-      sameSite: 'Strict',
-      httpOnly: false,
-      maxAge: 60 * 60,
+// Append WORM audit entries for mutating requests
+try {
+  const { append: appendAudit } = require("./audit.cjs");
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      const method = (req.method || "GET").toUpperCase();
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        const actor =
+          req.headers["x-user-id"] || req.headers["x-actor"] || null;
+        const patientId = req.headers["x-patient-id"] || null;
+        try {
+          appendAudit({
+            ts: new Date().toISOString(),
+            method,
+            path: req.originalUrl || req.url,
+            status: res.statusCode,
+            actor,
+            patientId,
+            durationMs: Date.now() - start,
+          });
+        } catch {}
+      }
     });
+    next();
+  });
+} catch {}
+
+// LGPD portability: JSON-LD export stub
+app.get(
+  ["/api/v1/pacientes/:id/export/jsonld", "/api/pacientes/:id/export/jsonld"],
+  async (req, res, next) => {
+    try {
+      const patient = await prisma.patient.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, birthDate: true, document: true },
+      });
+      if (!patient) return res.status(404).json({ error: "patient_not_found" });
+      const base = `${req.protocol}://${req.get("host")}`;
+      res.setHeader("Content-Type", "application/ld+json");
+      return res.status(200).end(
+        JSON.stringify({
+          "@context": {
+            "@vocab": "https://schema.org/",
+            record: {
+              "@id": "https://schema.org/MedicalRecord",
+              "@type": "@id",
+            },
+          },
+          "@id": `${base}/api/v1/pacientes/${patient.id}`,
+          "@type": "Person",
+          identifier: patient.document || null,
+          name: patient.name || null,
+          birthDate: patient.birthDate ? patient.birthDate.toISOString() : null,
+          records: [],
+        })
+      );
+    } catch (e) {
+      next(e);
+    }
   }
-  req.csrfToken = token;
-  next();
-});
+);
+
+// RBAC/Feature-flag protected example (creation via new endpoint)
+try {
+  const { attachUser, requireRole } = require("./rbac.cjs");
+  const { requireFeature } = require("./featureFlags.cjs");
+  app.post(
+    ["/api/v1/prescriptions", "/api/prescriptions"],
+    attachUser,
+    requireRole(["Admin", "Medico"]),
+    requireFeature("templates"),
+    (req, res) => {
+      res.status(201).json({ ok: true });
+    }
+  );
+} catch {}
+
+// OpenAPI docs from zod-to-openapi if contracts available
+try {
+  const { buildSpec } = require("./openapi.cjs");
+  app.get(["/api/docs", "/api/v1/docs"], (req, res) => {
+    try {
+      const doc = buildSpec({
+        title: "Prontuario API",
+        version: process.env.API_VERSION || "1.0.0",
+        servers: ["/api", "/api/v1"],
+      });
+      res.setHeader("Content-Type", "application/json");
+      res.status(200).end(JSON.stringify(doc));
+    } catch (e) {
+      res.status(500).json({ error: "openapi_failed" });
+    }
+  });
+  logger.info({
+    msg: "observability_ready",
+    otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+} catch {}
 
 const PATIENT_PAGE_SIZE_DEFAULT = 15;
 
 const safeString = (value) =>
-  typeof value === 'string' ? value : value === null || value === undefined ? null : String(value);
+  typeof value === "string"
+    ? value
+    : value === null || value === undefined
+      ? null
+      : String(value);
 
 const normalizeDateToISO = (value) => {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const candidate = trimmed.includes('T') ? trimmed : `${trimmed}T00:00:00-03:00`;
+  const candidate = trimmed.includes("T")
+    ? trimmed
+    : `${trimmed}T00:00:00-03:00`;
   const date = new Date(candidate);
   if (Number.isNaN(date.getTime())) {
-    throw new Error('Data inválida');
+    throw new Error("Data inválida");
   }
   return date.toISOString();
 };
 
-const patientBodySchema = z
-  .object({
-    name: z.string().trim().min(1, 'Nome obrigatório').max(160),
-    document: z
-      .string()
-      .trim()
-      .min(3, 'Documento muito curto')
-      .max(32, 'Documento muito longo')
-      .optional()
-      .or(z.literal(''))
-      .transform((value) => {
-        const normalized = value?.trim();
-        return normalized ? normalized : null;
-      }),
-    birthDate: z
-      .string()
-      .optional()
-      .or(z.null())
-      .transform((value) => {
-        if (!value) return null;
-        return normalizeDateToISO(value);
-      }),
-    contact: z
+const patientBodySchema =
+  Contracts?.PatientCreateUpdateSchema ??
+  z
+    .object({
+      name: z.string().trim().min(1, "Nome obrigatório").max(160),
+      document: z
+        .string()
+        .trim()
+        .min(3, "Documento muito curto")
+        .max(32, "Documento muito longo")
+        .optional()
+        .or(z.literal(""))
+        .transform((value) => {
+          const normalized = value?.trim();
+          return normalized ? normalized : null;
+        }),
+      birthDate: z
+        .string()
+        .optional()
+        .or(z.null())
+        .transform((value) => {
+          if (!value) return null;
+          return normalizeDateToISO(value);
+        }),
+      contact: z
+        .object({
+          phone: z.string().trim().max(64).optional(),
+          email: z.string().trim().email("E-mail inválido").max(120).optional(),
+          notes: z.string().trim().max(280).optional(),
+        })
+        .partial()
+        .optional()
+        .transform((value) => {
+          if (!value) return null;
+          const cleanedEntries = Object.entries(value).filter(([, val]) => {
+            if (typeof val !== "string") {
+              return false;
+            }
+            return Boolean(val.trim());
+          });
+          if (!cleanedEntries.length) return null;
+          return Object.fromEntries(
+            cleanedEntries.map(([key, val]) => [
+              key,
+              typeof val === "string" ? val.trim() : val,
+            ])
+          );
+        }),
+      payer: z
+        .string()
+        .trim()
+        .max(120)
+        .optional()
+        .or(z.literal(""))
+        .transform((value) => {
+          const normalized = value?.trim();
+          return normalized ? normalized : null;
+        }),
+      allergies: z
+        .array(z.string().trim().min(1, "Alergia inválida").max(80))
+        .max(24)
+        .optional()
+        .default([]),
+      tags: z
+        .array(z.string().trim().min(1).max(60))
+        .max(24)
+        .optional()
+        .default([]),
+    })
+    .strict();
+
+const encounterBodySchema =
+  Contracts?.EncounterCreateSchema ??
+  z
+    .object({
+      patientId: z.string().trim().min(1, "Paciente obrigatório"),
+      date: z
+        .string()
+        .optional()
+        .or(z.null())
+        .transform((value) => {
+          if (!value) return null;
+          return normalizeDateToISO(value);
+        }),
+      type: z.string().trim().min(1, "Tipo obrigatório").max(64),
+    })
+    .strict();
+
+const noteCreateSchema =
+  Contracts?.NoteCreateSchema ??
+  z
+    .object({
+      encounterId: z.string().trim().min(1, "Encontro obrigatório"),
+      authorId: z.string().trim().optional(),
+      contentText: z.string().trim().min(1, "Conteúdo obrigatório"),
+    })
+    .strict();
+
+const noteUpdateSchema =
+  Contracts?.NoteUpdateSchema ??
+  z
+    .object({
+      contentText: z.string().trim().min(1, "Conteúdo obrigatório"),
+      authorId: z.string().trim().optional(),
+    })
+    .strict();
+
+const prescriptionCreateSchema = Contracts?.PrescriptionCreateSchema
+  ? Contracts.PrescriptionCreateSchema
+  : z
       .object({
-        phone: z.string().trim().max(64).optional(),
-        email: z
+        patientId: z.string().trim().min(1, "Paciente obrigatório"),
+        formato: z.enum(["A4", "A5"]).default("A4"),
+        cid: z
           .string()
           .trim()
-          .email('E-mail inválido')
-          .max(120)
-          .optional(),
-        notes: z.string().trim().max(280).optional(),
+          .optional()
+          .or(z.literal(""))
+          .transform((v) => (v?.trim() ? v.trim() : null)),
+        observacoes: z
+          .string()
+          .trim()
+          .optional()
+          .or(z.literal(""))
+          .transform((v) => (v?.trim() ? v.trim() : null)),
+        items: z
+          .array(
+            z.object({
+              nome: z.string().trim().min(1),
+              dose: z.string().trim().optional().or(z.literal("")),
+              via: z.string().trim().optional().or(z.literal("")),
+              horario: z.string().trim().optional().or(z.literal("")),
+              observacao: z.string().trim().optional().or(z.literal("")),
+            })
+          )
+          .min(1, "Informe ao menos um item"),
       })
-      .partial()
-      .optional()
-      .transform((value) => {
-        if (!value) return null;
-        const cleanedEntries = Object.entries(value).filter(([, val]) => {
-          if (typeof val !== 'string') {
-            return false;
-          }
-          return Boolean(val.trim());
-        });
-        if (!cleanedEntries.length) return null;
-        return Object.fromEntries(
-          cleanedEntries.map(([key, val]) => [key, typeof val === 'string' ? val.trim() : val]),
-        );
-      }),
-    payer: z
-      .string()
-      .trim()
-      .max(120)
-      .optional()
-      .or(z.literal(''))
-      .transform((value) => {
-        const normalized = value?.trim();
-        return normalized ? normalized : null;
-      }),
-    allergies: z
-      .array(z.string().trim().min(1, 'Alergia inválida').max(80))
-      .max(24)
-      .optional()
-      .default([]),
-    tags: z.array(z.string().trim().min(1).max(60)).max(24).optional().default([]),
-  })
-  .strict();
-
-const encounterBodySchema = z
-  .object({
-    patientId: z.string().trim().min(1, 'Paciente obrigatório'),
-    date: z
-      .string()
-      .optional()
-      .or(z.null())
-      .transform((value) => {
-        if (!value) return null;
-        return normalizeDateToISO(value);
-      }),
-    type: z.string().trim().min(1, 'Tipo obrigatório').max(64),
-  })
-  .strict();
-
-const noteCreateSchema = z
-  .object({
-    encounterId: z.string().trim().min(1, 'Encontro obrigatório'),
-    authorId: z.string().trim().optional(),
-    contentText: z.string().trim().min(1, 'Conteúdo obrigatório'),
-  })
-  .strict();
-
-const noteUpdateSchema = z
-  .object({
-    contentText: z.string().trim().min(1, 'Conteúdo obrigatório'),
-    authorId: z.string().trim().optional(),
-  })
-  .strict();
+      .strict();
 
 const settingBodySchema = z
   .object({
@@ -503,12 +759,13 @@ const querySchema = z
       .transform((value) => {
         if (!value) return PATIENT_PAGE_SIZE_DEFAULT;
         const parsed = Number.parseInt(value, 10);
-        if (!Number.isFinite(parsed) || parsed <= 0) return PATIENT_PAGE_SIZE_DEFAULT;
+        if (!Number.isFinite(parsed) || parsed <= 0)
+          return PATIENT_PAGE_SIZE_DEFAULT;
         return Math.min(parsed, 50);
       }),
   })
   .transform((params) => ({
-    query: params.query?.trim() ?? '',
+    query: params.query?.trim() ?? "",
     page: params.page ?? 1,
     perPage: params.perPage ?? PATIENT_PAGE_SIZE_DEFAULT,
   }));
@@ -518,29 +775,15 @@ const asyncHandler = (fn) => (req, res, next) => {
 };
 
 const computeHash = (payload) =>
-  crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 
 const appendAuditLog = async ({ who, what, meta }) => {
   const lastLog = await prisma.auditLog.findFirst({
-    orderBy: { when: 'desc' },
-    select: { who: true, what: true, when: true, meta: true, hashPrev: true },
+    orderBy: { when: "desc" },
+    select: { meta: true },
   });
-  let previousHash = null;
-  if (lastLog) {
-    if (typeof lastLog.meta?.chainHash === 'string') {
-      previousHash = lastLog.meta.chainHash;
-    } else {
-      previousHash = computeHash({
-        who: lastLog.who ?? null,
-        what: lastLog.what,
-        when: lastLog.when?.toISOString?.() ?? new Date(lastLog.when).toISOString(),
-        hashPrev: lastLog.hashPrev ?? null,
-        meta: lastLog.meta ?? {},
-      });
-    }
-  }
-
-  const when = new Date();
+  const previousHash =
+    typeof lastLog?.meta?.hash === "string" ? lastLog.meta.hash : null;
   const baseEntry = {
     who: who ?? null,
     what,
@@ -548,33 +791,38 @@ const appendAuditLog = async ({ who, what, meta }) => {
     hashPrev: previousHash,
     meta: meta ?? {},
   };
-  const chainHash = computeHash({
-    who: baseEntry.who,
-    what: baseEntry.what,
-    when: when.toISOString(),
+  const currentHash = computeHash({
+    ...baseEntry,
+    meta: meta ?? {},
     hashPrev: previousHash,
-    meta: baseEntry.meta,
   });
-  return prisma.auditLog.create({
-    data: {
-      ...baseEntry,
-      meta: { ...baseEntry.meta, chainHash },
-    },
-  });
+  const entryWithHash = {
+    ...baseEntry,
+    meta: { ...(meta ?? {}), hash: currentHash },
+  };
+  return prisma.auditLog.create({ data: entryWithHash });
 };
 
 const appendEvent = async (patientId, type, payload) => {
   const lastEvent = await prisma.event.findFirst({
     where: { patientId },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     select: { payload: true },
   });
-  const previousHash = typeof lastEvent?.payload?.hash === 'string' ? lastEvent.payload.hash : null;
+  const previousHash =
+    typeof lastEvent?.payload?.hash === "string"
+      ? lastEvent.payload.hash
+      : null;
   const basePayload = {
     ...payload,
     hashPrev: previousHash,
   };
-  const currentHash = computeHash({ patientId, type, payload: basePayload, hashPrev: previousHash });
+  const currentHash = computeHash({
+    patientId,
+    type,
+    payload: basePayload,
+    hashPrev: previousHash,
+  });
   const storedPayload = {
     ...basePayload,
     hash: currentHash,
@@ -606,11 +854,16 @@ const computeHighlights = (patient, query) => {
   if (!query) return {};
   const target = query.toLowerCase();
   const fields = {
-    name: patient.name ?? '',
-    document: patient.document ?? '',
-    payer: patient.payer ?? '',
+    name: patient.name ?? "",
+    document: patient.document ?? "",
+    payer: patient.payer ?? "",
   };
-  const contactText = safeString(patient.contact?.phone ?? patient.contact?.email ?? patient.contact?.notes ?? '');
+  const contactText = safeString(
+    patient.contact?.phone ??
+      patient.contact?.email ??
+      patient.contact?.notes ??
+      ""
+  );
   if (contactText) {
     fields.contact = contactText;
   }
@@ -656,7 +909,9 @@ const serializeNote = (record) => ({
       ? {
           id: record.encounter.id,
           patientId: record.encounter.patientId,
-          date: record.encounter.date?.toISOString?.() ?? new Date(record.encounter.date).toISOString(),
+          date:
+            record.encounter.date?.toISOString?.() ??
+            new Date(record.encounter.date).toISOString(),
           type: record.encounter.type,
         }
       : undefined,
@@ -681,31 +936,55 @@ const serializeNoteVersion = (record) => ({
 });
 
 const summarizeContent = (content) => {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized;
+  const normalized = content.replace(/\s+/g, " ").trim();
+  return normalized.length > 160
+    ? `${normalized.slice(0, 157)}...`
+    : normalized;
 };
 
 app.get(
-  '/api/v1/health',
+  "/api/v1/health",
   asyncHandler(async (req, res) => {
     const patientCount = await prisma.patient.count();
-    res.json({ status: 'ok', patients: patientCount, timestamp: new Date().toISOString() });
-  }),
+    res.json({
+      status: "ok",
+      patients: patientCount,
+      timestamp: new Date().toISOString(),
+    });
+  })
 );
 
 app.get(
-  '/api/v1/patients',
+  "/api/v1/patients",
   asyncHandler(async (req, res) => {
     const { query, page, perPage } = querySchema.parse(req.query ?? {});
     const where = query
       ? {
           OR: [
-            { name: { contains: query, mode: 'insensitive' } },
-            { document: { contains: query, mode: 'insensitive' } },
-            { payer: { contains: query, mode: 'insensitive' } },
-            { contactJson: { path: ['phone'], string_contains: query, string_mode: 'insensitive' } },
-            { contactJson: { path: ['email'], string_contains: query, string_mode: 'insensitive' } },
-            { contactJson: { path: ['notes'], string_contains: query, string_mode: 'insensitive' } },
+            { name: { contains: query, mode: "insensitive" } },
+            { document: { contains: query, mode: "insensitive" } },
+            { payer: { contains: query, mode: "insensitive" } },
+            {
+              contactJson: {
+                path: ["phone"],
+                string_contains: query,
+                string_mode: "insensitive",
+              },
+            },
+            {
+              contactJson: {
+                path: ["email"],
+                string_contains: query,
+                string_mode: "insensitive",
+              },
+            },
+            {
+              contactJson: {
+                path: ["notes"],
+                string_contains: query,
+                string_mode: "insensitive",
+              },
+            },
           ],
         }
       : {};
@@ -714,7 +993,7 @@ app.get(
       prisma.patient.count({ where }),
       prisma.patient.findMany({
         where,
-        orderBy: [{ updatedAt: 'desc' }],
+        orderBy: [{ updatedAt: "desc" }],
         skip: (page - 1) * perPage,
         take: perPage,
       }),
@@ -734,23 +1013,24 @@ app.get(
       total,
       items,
     });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/patients/metrics',
+  "/api/v1/patients/metrics",
   asyncHandler(async (req, res) => {
-    const [totalPatients, encountersToday, prescriptions, allergyAlerts] = await Promise.all([
-      prisma.patient.count(),
-      prisma.event.count({
-        where: {
-          type: 'ENCOUNTER',
-          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.event.count({ where: { type: 'PRESCRIPTION' } }),
-      prisma.patient.count({ where: { allergies: { isEmpty: false } } }),
-    ]);
+    const [totalPatients, encountersToday, prescriptions, allergyAlerts] =
+      await Promise.all([
+        prisma.patient.count(),
+        prisma.event.count({
+          where: {
+            type: "ENCOUNTER",
+            createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+          },
+        }),
+        prisma.event.count({ where: { type: "PRESCRIPTION" } }),
+        prisma.patient.count({ where: { allergies: { isEmpty: false } } }),
+      ]);
 
     res.json({
       totalPatients,
@@ -758,27 +1038,29 @@ app.get(
       activePrescriptions: prescriptions,
       allergyAlerts,
     });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/patients/:id',
+  "/api/v1/patients/:id",
   asyncHandler(async (req, res) => {
-    const record = await prisma.patient.findUnique({ where: { id: req.params.id } });
+    const record = await prisma.patient.findUnique({
+      where: { id: req.params.id },
+    });
     if (!record) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Paciente não encontrado',
+        type: "about:blank",
+        title: "Paciente não encontrado",
         status: 404,
         detail: `Paciente ${req.params.id} inexistente`,
       });
     }
     res.json({ patient: serializePatient(record) });
-  }),
+  })
 );
 
 app.post(
-  '/api/v1/patients',
+  "/api/v1/patients",
   asyncHandler(async (req, res) => {
     const payload = patientBodySchema.parse(req.body ?? {});
     const created = await prisma.patient.create({
@@ -793,22 +1075,22 @@ app.post(
       },
     });
 
-    await appendEvent(created.id, 'PATIENT_CREATE', {
-      summary: 'Paciente cadastrado',
+    await appendEvent(created.id, "PATIENT_CREATE", {
+      summary: "Paciente cadastrado",
       snapshot: serializePatient(created),
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Paciente ${created.id} criado`,
       meta: { patientId: created.id },
     });
 
     res.status(201).json({ patient: serializePatient(created) });
-  }),
+  })
 );
 
 app.put(
-  '/api/v1/patients/:id',
+  "/api/v1/patients/:id",
   asyncHandler(async (req, res) => {
     const payload = patientBodySchema.parse(req.body ?? {});
 
@@ -825,45 +1107,47 @@ app.put(
       },
     });
 
-    await appendEvent(updated.id, 'PATIENT_UPDATE', {
-      summary: 'Dados do paciente atualizados',
+    await appendEvent(updated.id, "PATIENT_UPDATE", {
+      summary: "Dados do paciente atualizados",
       snapshot: serializePatient(updated),
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Paciente ${updated.id} atualizado`,
       meta: { patientId: updated.id },
     });
 
     res.json({ patient: serializePatient(updated) });
-  }),
+  })
 );
 
 app.delete(
-  '/api/v1/patients/:id',
+  "/api/v1/patients/:id",
   asyncHandler(async (req, res) => {
-    const removed = await prisma.patient.delete({ where: { id: req.params.id } });
+    const removed = await prisma.patient.delete({
+      where: { id: req.params.id },
+    });
 
-    await appendEvent(removed.id, 'PATIENT_DELETE', {
-      summary: 'Paciente removido',
+    await appendEvent(removed.id, "PATIENT_DELETE", {
+      summary: "Paciente removido",
       snapshot: { id: removed.id, name: removed.name },
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Paciente ${removed.id} excluído`,
       meta: { patientId: removed.id },
     });
 
     res.status(204).send();
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/patients/:id/events',
+  "/api/v1/patients/:id/events",
   asyncHandler(async (req, res) => {
     const events = await prisma.event.findMany({
       where: { patientId: req.params.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
     const serialized = events.map((event) => ({
       id: event.id,
@@ -874,18 +1158,20 @@ app.get(
       payload: event.payload ?? null,
     }));
     res.json({ items: serialized });
-  }),
+  })
 );
 
 app.post(
-  '/api/v1/encounters',
+  "/api/v1/encounters",
   asyncHandler(async (req, res) => {
     const payload = encounterBodySchema.parse(req.body ?? {});
-    const patient = await prisma.patient.findUnique({ where: { id: payload.patientId } });
+    const patient = await prisma.patient.findUnique({
+      where: { id: payload.patientId },
+    });
     if (!patient) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Paciente não encontrado',
+        type: "about:blank",
+        title: "Paciente não encontrado",
         status: 404,
         detail: `Paciente ${payload.patientId} inexistente`,
       });
@@ -899,48 +1185,52 @@ app.post(
       },
     });
 
-    await appendEvent(payload.patientId, 'ENCOUNTER', {
+    await appendEvent(payload.patientId, "ENCOUNTER", {
       encounterId: encounter.id,
       type: encounter.type,
       date: encounter.date.toISOString(),
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Encontro ${encounter.id} criado`,
       meta: { patientId: payload.patientId, encounterId: encounter.id },
     });
 
     res.status(201).json({ encounter: serializeEncounter(encounter) });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/encounters',
+  "/api/v1/encounters",
   asyncHandler(async (req, res) => {
-    const patientId = typeof req.query?.patient_id === 'string' ? req.query.patient_id.trim() : '';
+    const patientId =
+      typeof req.query?.patient_id === "string"
+        ? req.query.patient_id.trim()
+        : "";
     if (!patientId) {
       return res.status(400).json({
-        type: 'about:blank',
-        title: 'Paciente obrigatório',
+        type: "about:blank",
+        title: "Paciente obrigatório",
         status: 400,
-        detail: 'Informe patient_id na consulta.',
+        detail: "Informe patient_id na consulta.",
       });
     }
-    const page = Number.parseInt(req.query?.page ?? '1', 10);
-    const pageSize = Number.parseInt(req.query?.page_size ?? '10', 10);
+    const page = Number.parseInt(req.query?.page ?? "1", 10);
+    const pageSize = Number.parseInt(req.query?.page_size ?? "10", 10);
     const normalizedPage = Number.isFinite(page) && page > 0 ? page : 1;
-    const normalizedPageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 50) : 10;
+    const normalizedPageSize =
+      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 50) : 10;
 
     const [total, records] = await Promise.all([
       prisma.encounter.count({ where: { patientId } }),
       prisma.encounter.findMany({
         where: { patientId },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         skip: (normalizedPage - 1) * normalizedPageSize,
         take: normalizedPageSize,
         include: {
           notes: {
-            orderBy: { updatedAt: 'desc' },
+            orderBy: { updatedAt: "desc" },
             take: 1,
           },
         },
@@ -949,15 +1239,14 @@ app.get(
 
     const items = records.map((record) => ({
       encounter: serializeEncounter(record),
-      latestNote:
-        record.notes?.[0]
-          ? {
-              id: record.notes[0].id,
-              version: record.notes[0].version,
-              updatedAt: record.notes[0].updatedAt.toISOString(),
-              summary: summarizeContent(record.notes[0].contentText),
-            }
-          : null,
+      latestNote: record.notes?.[0]
+        ? {
+            id: record.notes[0].id,
+            version: record.notes[0].version,
+            updatedAt: record.notes[0].updatedAt.toISOString(),
+            summary: summarizeContent(record.notes[0].contentText),
+          }
+        : null,
     }));
 
     res.json({
@@ -966,26 +1255,26 @@ app.get(
       total,
       items,
     });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/encounters/:id',
+  "/api/v1/encounters/:id",
   asyncHandler(async (req, res) => {
     const encounter = await prisma.encounter.findUnique({
       where: { id: req.params.id },
       include: {
         notes: {
           include: { Attachments: true },
-          orderBy: { updatedAt: 'desc' },
+          orderBy: { updatedAt: "desc" },
         },
       },
     });
 
     if (!encounter) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Encontro não encontrado',
+        type: "about:blank",
+        title: "Encontro não encontrado",
         status: 404,
         detail: `Encontro ${req.params.id} inexistente`,
       });
@@ -995,11 +1284,11 @@ app.get(
       encounter: serializeEncounter(encounter),
       notes: encounter.notes.map((note) => serializeNote(note)),
     });
-  }),
+  })
 );
 
 app.post(
-  '/api/v1/notes',
+  "/api/v1/notes",
   asyncHandler(async (req, res) => {
     const payload = noteCreateSchema.parse(req.body ?? {});
     const encounter = await prisma.encounter.findUnique({
@@ -1009,8 +1298,8 @@ app.post(
 
     if (!encounter) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Encontro não encontrado',
+        type: "about:blank",
+        title: "Encontro não encontrado",
         status: 404,
         detail: `Encontro ${payload.encounterId} inexistente`,
       });
@@ -1033,9 +1322,13 @@ app.post(
       },
     });
 
-    const contentHash = computeHash({ noteId: note.id, version: 1, content: payload.contentText });
+    const contentHash = computeHash({
+      noteId: note.id,
+      version: 1,
+      content: payload.contentText,
+    });
 
-    await appendEvent(encounter.patientId, 'NOTE_CREATE', {
+    await appendEvent(encounter.patientId, "NOTE_CREATE", {
       noteId: note.id,
       encounterId: payload.encounterId,
       version: 1,
@@ -1043,17 +1336,22 @@ app.post(
       hash: contentHash,
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Nota ${note.id} criada`,
-      meta: { patientId: encounter.patientId, encounterId: payload.encounterId, noteId: note.id, contentHash },
+      meta: {
+        patientId: encounter.patientId,
+        encounterId: payload.encounterId,
+        noteId: note.id,
+        contentHash,
+      },
     });
 
     res.status(201).json({ note: serializeNote(note) });
-  }),
+  })
 );
 
 app.put(
-  '/api/v1/notes/:id',
+  "/api/v1/notes/:id",
   asyncHandler(async (req, res) => {
     const payload = noteUpdateSchema.parse(req.body ?? {});
     const existing = await prisma.note.findUnique({
@@ -1063,8 +1361,8 @@ app.put(
 
     if (!existing) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Nota não encontrada',
+        type: "about:blank",
+        title: "Nota não encontrada",
         status: 404,
         detail: `Nota ${req.params.id} inexistente`,
       });
@@ -1090,9 +1388,13 @@ app.put(
       },
     });
 
-    const contentHash = computeHash({ noteId: note.id, version: nextVersion, content: payload.contentText });
+    const contentHash = computeHash({
+      noteId: note.id,
+      version: nextVersion,
+      content: payload.contentText,
+    });
 
-    await appendEvent(existing.encounter.patientId, 'NOTE_UPDATE', {
+    await appendEvent(existing.encounter.patientId, "NOTE_UPDATE", {
       noteId: note.id,
       encounterId: note.encounterId,
       version: nextVersion,
@@ -1100,7 +1402,7 @@ app.put(
       hash: contentHash,
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Nota ${note.id} atualizada`,
       meta: {
         patientId: existing.encounter.patientId,
@@ -1111,11 +1413,11 @@ app.put(
     });
 
     res.json({ note: serializeNote(note) });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/notes/:id',
+  "/api/v1/notes/:id",
   asyncHandler(async (req, res) => {
     const note = await prisma.note.findUnique({
       where: { id: req.params.id },
@@ -1124,48 +1426,51 @@ app.get(
 
     if (!note) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Nota não encontrada',
+        type: "about:blank",
+        title: "Nota não encontrada",
         status: 404,
         detail: `Nota ${req.params.id} inexistente`,
       });
     }
 
     res.json({ note: serializeNote(note) });
-  }),
+  })
 );
 
 app.get(
-  '/api/v1/notes/:id/versions',
+  "/api/v1/notes/:id/versions",
   asyncHandler(async (req, res) => {
     const versions = await prisma.noteVersion.findMany({
       where: { noteId: req.params.id },
-      orderBy: { version: 'desc' },
+      orderBy: { version: "desc" },
     });
 
-    res.json({ versions: versions.map((version) => serializeNoteVersion(version)) });
-  }),
+    res.json({
+      versions: versions.map((version) => serializeNoteVersion(version)),
+    });
+  })
 );
 
 app.post(
-  '/api/v1/attachments',
-  upload.single('file'),
+  "/api/v1/attachments",
+  upload.single("file"),
   asyncHandler(async (req, res) => {
-    const noteId = typeof req.body?.noteId === 'string' ? req.body.noteId.trim() : '';
+    const noteId =
+      typeof req.body?.noteId === "string" ? req.body.noteId.trim() : "";
     if (!noteId) {
       return res.status(400).json({
-        type: 'about:blank',
-        title: 'Nota obrigatória',
+        type: "about:blank",
+        title: "Nota obrigatória",
         status: 400,
-        detail: 'Informe noteId no formulário.',
+        detail: "Informe noteId no formulário.",
       });
     }
     if (!req.file) {
       return res.status(400).json({
-        type: 'about:blank',
-        title: 'Arquivo ausente',
+        type: "about:blank",
+        title: "Arquivo ausente",
         status: 400,
-        detail: 'Envie um arquivo pdf/png/jpg/jpeg de até 10 MB.',
+        detail: "Envie um arquivo pdf/png/jpg/jpeg de até 10 MB.",
       });
     }
 
@@ -1176,8 +1481,8 @@ app.post(
 
     if (!note) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Nota não encontrada',
+        type: "about:blank",
+        title: "Nota não encontrada",
         status: 404,
         detail: `Nota ${noteId} inexistente`,
       });
@@ -1209,7 +1514,7 @@ app.post(
       fileName: attachment.fileName,
     });
 
-    await appendEvent(note.encounter.patientId, 'ATTACHMENT', {
+    await appendEvent(note.encounter.patientId, "ATTACHMENT", {
       noteId,
       attachmentId: attachment.id,
       fileName: attachment.fileName,
@@ -1218,7 +1523,7 @@ app.post(
       hash: attachmentHash,
     });
     await appendAuditLog({
-      who: req.header('x-user-id') ?? null,
+      who: req.header("x-user-id") ?? null,
       what: `Anexo ${attachment.id} enviado`,
       meta: {
         patientId: note.encounter.patientId,
@@ -1239,17 +1544,301 @@ app.post(
         createdAt: attachment.createdAt.toISOString(),
       },
     });
-  }),
+  })
+);
+
+// Auth status / login stubs for prescriptions SSO (Bird ID / Memed)
+app.get("/auth/status", (req, res) => {
+  const issuer = process.env.BIRDID_ISSUER || "";
+  const clientId = process.env.BIRDID_CLIENT_ID || "";
+  const redirectUri = process.env.BIRDID_REDIRECT_URI || "";
+  const memedUrl = process.env.MEMED_SSO_URL || "";
+  const mode = (process.env.MEMED_MODE || "print").toLowerCase();
+  const online = Boolean(
+    issuer && clientId && redirectUri && memedUrl && mode === "sso_birdid"
+  );
+  res.json({ ok: true, online, issuer: online ? issuer : null, mode });
+});
+// Alias expected by webapp API base (/api)
+app.get("/api/auth/status", (req, res) => {
+  const issuer = process.env.BIRDID_ISSUER || "";
+  const clientId = process.env.BIRDID_CLIENT_ID || "";
+  const redirectUri = process.env.BIRDID_REDIRECT_URI || "";
+  const memedUrl = process.env.MEMED_SSO_URL || "";
+  const mode = (process.env.MEMED_MODE || "print").toLowerCase();
+  const online = Boolean(
+    issuer && clientId && redirectUri && memedUrl && mode === "sso_birdid"
+  );
+  res.json({ ok: true, online, issuer: online ? issuer : null, mode });
+});
+
+app.post("/auth/login", (req, res) => {
+  const issuer = process.env.BIRDID_ISSUER || "";
+  const clientId = process.env.BIRDID_CLIENT_ID || "";
+  const redirectUri = process.env.BIRDID_REDIRECT_URI || "";
+  const memedUrl = process.env.MEMED_SSO_URL || "";
+  if (!issuer || !clientId || !redirectUri || !memedUrl) {
+    return res
+      .status(503)
+      .json({ ok: false, error: "Configuração Bird ID ausente" });
+  }
+  const body = req.body || {};
+  const codeChallenge =
+    typeof body.codeChallenge === "string" ? body.codeChallenge : "";
+  const state = typeof body.state === "string" ? body.state : "";
+  if (!codeChallenge) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "codeChallenge obrigatório" });
+  }
+  const authorizeUrl = new URL(`${issuer.replace(/\/$/, "")}/authorize`);
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("scope", "openid profile");
+  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+  authorizeUrl.searchParams.set("code_challenge_method", "S256");
+  if (state) authorizeUrl.searchParams.set("state", state);
+  res.json({
+    ok: true,
+    authorizeUrl: authorizeUrl.toString(),
+    returnUrl: memedUrl,
+  });
+});
+// Alias expected by webapp API base (/api)
+app.post("/api/auth/login", (req, res) => {
+  const issuer = process.env.BIRDID_ISSUER || "";
+  const clientId = process.env.BIRDID_CLIENT_ID || "";
+  const redirectUri = process.env.BIRDID_REDIRECT_URI || "";
+  const memedUrl = process.env.MEMED_SSO_URL || "";
+  if (!issuer || !clientId || !redirectUri || !memedUrl) {
+    return res
+      .status(503)
+      .json({ ok: false, error: "Configuração Bird ID ausente" });
+  }
+  const body = req.body || {};
+  const codeChallenge =
+    typeof body.codeChallenge === "string" ? body.codeChallenge : "";
+  const state = typeof body.state === "string" ? body.state : "";
+  if (!codeChallenge) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "codeChallenge obrigatório" });
+  }
+  const authorizeUrl = new URL(`${issuer.replace(/\/$/, "")}/authorize`);
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("scope", "openid profile");
+  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+  authorizeUrl.searchParams.set("code_challenge_method", "S256");
+  if (state) authorizeUrl.searchParams.set("state", state);
+  res.json({
+    ok: true,
+    authorizeUrl: authorizeUrl.toString(),
+    returnUrl: memedUrl,
+  });
+});
+
+// Prescriptions endpoints (v1)
+const serializePrescription = (record, patientName) => ({
+  id: record.id,
+  numero: record.number,
+  pacienteId: record.patientId,
+  pacienteNome: patientName || "Paciente",
+  cid: record.cid ?? null,
+  observacoes: record.observacoes ?? null,
+  formato: record.formato,
+  itens: Array.isArray(record.items) ? record.items : [],
+  criadoEm: record.createdAt.toISOString(),
+  tipo: "PRINT",
+});
+
+app.get(
+  "/api/v1/patients/:id/prescriptions",
+  asyncHandler(async (req, res) => {
+    const patientId = req.params.id;
+    const items = await prisma.prescription.findMany({
+      where: { patientId },
+      orderBy: { createdAt: "desc" },
+      include: { patient: true },
+    });
+    const list = items.map((p) => serializePrescription(p, p.patient?.name));
+    res.json({ items: list });
+  })
 );
 
 app.get(
-  '/api/v1/attachments/:id/download',
+  "/api/v1/prescriptions/:id",
   asyncHandler(async (req, res) => {
-    const attachment = await prisma.attachment.findUnique({ where: { id: req.params.id } });
+    const p = await prisma.prescription.findUnique({
+      where: { id: req.params.id },
+      include: { patient: true },
+    });
+    if (!p)
+      return res
+        .status(404)
+        .json({ ok: false, error: "prescrição não encontrada" });
+    res.json({ item: serializePrescription(p, p.patient?.name) });
+  })
+);
+
+app.post(
+  "/api/v1/prescriptions/print",
+  idempotencyMiddleware("POST:/api/v1/prescriptions/print"),
+  asyncHandler(async (req, res) => {
+    const input = prescriptionCreateSchema.parse(req.body || {});
+    const patient = await prisma.patient.findUnique({
+      where: { id: input.patientId },
+    });
+    if (!patient)
+      return res
+        .status(404)
+        .json({ ok: false, error: "Paciente não encontrado" });
+    // normalize items with ordem
+    const normalizedItems = input.items
+      .map((it, idx) => ({
+        ordem: idx + 1,
+        nome: it.nome,
+        dose: it.dose || undefined,
+        via: it.via || undefined,
+        horario: it.horario || undefined,
+        observacao: it.observacao || undefined,
+      }))
+      .filter((i) => i.nome || i.dose || i.via || i.horario || i.observacao);
+    if (normalizedItems.length === 0)
+      return res.status(400).json({ ok: false, error: "Itens inválidos" });
+
+    const created = await prisma.prescription.create({
+      data: {
+        patientId: input.patientId,
+        formato: input.formato,
+        cid: input.cid,
+        observacoes: input.observacoes,
+        items: normalizedItems,
+      },
+      include: { patient: true },
+    });
+
+    await appendEvent(input.patientId, "PRESCRIPTION", {
+      prescriptionId: created.id,
+      numero: created.number,
+      formato: created.formato,
+    });
+    await appendAuditLog({
+      who: req.header("x-user-id") ?? null,
+      what: `Prescrição ${created.id} emitida`,
+      meta: {
+        patientId: input.patientId,
+        prescriptionId: created.id,
+        numero: created.number,
+      },
+    });
+
+    res.json({ item: serializePrescription(created, created.patient?.name) });
+  })
+);
+
+// Portuguese alias routes used by webapp client (API_BASE=/api)
+app.get(
+  "/api/pacientes/:id/prescricoes",
+  asyncHandler(async (req, res) => {
+    const patientId = req.params.id;
+    const items = await prisma.prescription.findMany({
+      where: { patientId },
+      orderBy: { createdAt: "desc" },
+      include: { patient: true },
+    });
+    const list = items.map((p) => serializePrescription(p, p.patient?.name));
+    res.json({ items: list });
+  })
+);
+
+app.get(
+  "/api/prescricoes/:id",
+  asyncHandler(async (req, res) => {
+    const p = await prisma.prescription.findUnique({
+      where: { id: req.params.id },
+      include: { patient: true },
+    });
+    if (!p)
+      return res
+        .status(404)
+        .json({ ok: false, error: "prescrição não encontrada" });
+    res.json({ item: serializePrescription(p, p.patient?.name) });
+  })
+);
+
+app.post(
+  "/api/prescricoes/print",
+  idempotencyMiddleware("POST:/api/prescricoes/print"),
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    // map alias key pacienteId -> patientId
+    if (typeof body.pacienteId === "string" && !body.patientId) {
+      body.patientId = body.pacienteId;
+    }
+    const input = prescriptionCreateSchema.parse(body);
+    const patient = await prisma.patient.findUnique({
+      where: { id: input.patientId },
+    });
+    if (!patient)
+      return res
+        .status(404)
+        .json({ ok: false, error: "Paciente não encontrado" });
+    const normalizedItems = input.items
+      .map((it, idx) => ({
+        ordem: idx + 1,
+        nome: it.nome,
+        dose: it.dose || undefined,
+        via: it.via || undefined,
+        horario: it.horario || undefined,
+        observacao: it.observacao || undefined,
+      }))
+      .filter((i) => i.nome || i.dose || i.via || i.horario || i.observacao);
+    if (normalizedItems.length === 0)
+      return res.status(400).json({ ok: false, error: "Itens inválidos" });
+
+    const created = await prisma.prescription.create({
+      data: {
+        patientId: input.patientId,
+        formato: input.formato,
+        cid: input.cid,
+        observacoes: input.observacoes,
+        items: normalizedItems,
+      },
+      include: { patient: true },
+    });
+
+    await appendEvent(input.patientId, "PRESCRIPTION", {
+      prescriptionId: created.id,
+      numero: created.number,
+      formato: created.formato,
+    });
+    await appendAuditLog({
+      who: req.header("x-user-id") ?? null,
+      what: `Prescrição ${created.id} emitida`,
+      meta: {
+        patientId: input.patientId,
+        prescriptionId: created.id,
+        numero: created.number,
+      },
+    });
+
+    res.json({ item: serializePrescription(created, created.patient?.name) });
+  })
+);
+
+app.get(
+  "/api/v1/attachments/:id/download",
+  asyncHandler(async (req, res) => {
+    const attachment = await prisma.attachment.findUnique({
+      where: { id: req.params.id },
+    });
     if (!attachment) {
       return res.status(404).json({
-        type: 'about:blank',
-        title: 'Anexo não encontrado',
+        type: "about:blank",
+        title: "Anexo não encontrado",
         status: 404,
         detail: `Anexo ${req.params.id} inexistente`,
       });
@@ -1257,12 +1846,17 @@ app.get(
 
     const absolutePath = resolveAttachmentPath(attachment.filePath);
     const normalizedBase = `${uploadsBaseDir}${path.sep}`;
-    if (!(absolutePath === uploadsBaseDir || absolutePath.startsWith(normalizedBase))) {
+    if (
+      !(
+        absolutePath === uploadsBaseDir ||
+        absolutePath.startsWith(normalizedBase)
+      )
+    ) {
       return res.status(400).json({
-        type: 'about:blank',
-        title: 'Caminho inválido',
+        type: "about:blank",
+        title: "Caminho inválido",
         status: 400,
-        detail: 'Arquivo fora do diretório autorizado.',
+        detail: "Arquivo fora do diretório autorizado.",
       });
     }
 
@@ -1270,415 +1864,42 @@ app.get(
       await fsPromises.access(absolutePath);
     } catch {
       return res.status(410).json({
-        type: 'about:blank',
-        title: 'Arquivo indisponível',
+        type: "about:blank",
+        title: "Arquivo indisponível",
         status: 410,
-        detail: 'O arquivo informado não está mais disponível.',
+        detail: "O arquivo informado não está mais disponível.",
       });
     }
 
-    res.setHeader('Content-Type', attachment.mime);
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+    res.setHeader("Content-Type", attachment.mime);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${attachment.fileName}"`
+    );
     fs.createReadStream(absolutePath).pipe(res);
-  }),
+  })
 );
 
-app.get(
-  '/api/v1/settings',
-  asyncHandler(async (req, res) => {
-    const role = req.user?.role ?? 'Atendimento';
-    const records = await prisma.setting.findMany({
-      where: { isSecret: false },
-      orderBy: { key: 'asc' },
-    });
-    const filtered = filterSettingsForRole(records, role);
-    const items = filtered.map((record) => ({
-      key: record.key,
-      value: record.value ?? null,
-      updatedAt: record.updatedAt.toISOString(),
-    }));
-    res.json({ items, role });
-  }),
-);
+// Static assets and SPA routes (serve built webapp from /public)
+const rootDir = path.resolve(path.join(__dirname, ".."));
+const publicDir = path.join(rootDir, "public");
 
-app.put(
-  '/api/v1/settings/:key',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const key = req.params.key.trim();
-    if (SECRET_SCHEMAS?.[key]) {
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Configuração secreta',
-        status: 400,
-        detail: 'Utilize o endpoint de segredos para atualizar este valor.',
-      });
-    }
-    const payload = settingBodySchema.parse(req.body ?? {});
-    let value;
-    try {
-      value = validateSettingPayload(key, payload.value);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw error;
-      }
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Configuração inválida',
-        status: 400,
-        detail: error.message,
-      });
-    }
-    const updated = await prisma.setting.upsert({
-      where: { key },
-      update: { value, isSecret: false },
-      create: { key, value, isSecret: false },
-    });
-    await appendAuditLog({
-      who: req.user?.id ?? null,
-      what: 'SETTING_UPDATE',
-      meta: { key },
-    });
-    res.json({
-      setting: {
-        key: updated.key,
-        value: updated.value ?? null,
-        updatedAt: updated.updatedAt.toISOString(),
-      },
-    });
-  }),
-);
+// static assets
+app.use("/app/assets", express.static(path.join(publicDir, "app", "assets")));
+app.use("/assets", express.static(path.join(publicDir, "assets")));
 
-app.get(
-  '/api/v1/secrets/:key/meta',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  asyncHandler(async (req, res) => {
-    const key = req.params.key.trim();
-    const secret = await prisma.apiSecret.findUnique({ where: { key } });
-    const audit = await prisma.auditLog.findFirst({
-      where: {
-        what: 'SECRET_ROTATE',
-        meta: {
-          path: ['key'],
-          equals: key,
-        },
-      },
-      orderBy: { when: 'desc' },
-    });
-    res.json({
-      key,
-      hasValue: Boolean(secret),
-      updatedAt: secret?.updatedAt?.toISOString() ?? null,
-      lastChangedBy: audit?.who ?? null,
-      lastChangedAt: audit?.when?.toISOString?.() ?? (audit?.when ? new Date(audit.when).toISOString() : null),
-    });
-  }),
-);
+// redirect root to SPA entry
+app.get(["/", "/app"], (req, res) => res.redirect("/app/"));
 
-app.put(
-  '/api/v1/secrets/:key',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const key = req.params.key.trim();
-    const payload = secretBodySchema.parse(req.body ?? {});
-    let secretValue;
-    try {
-      secretValue = validateSecretPayload(key, payload.value);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw error;
-      }
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Segredo inválido',
-        status: 400,
-        detail: error.message,
-      });
-    }
-    const { nonce, payload: cipherPayload } = encryptSecret(secretValue);
-    const updated = await prisma.apiSecret.upsert({
-      where: { key },
-      update: { cipher: cipherPayload, nonce },
-      create: { key, cipher: cipherPayload, nonce },
-    });
-    await prisma.setting.upsert({
-      where: { key },
-      update: { value: { masked: maskSecretPreview(secretValue) }, isSecret: true },
-      create: { key, value: { masked: maskSecretPreview(secretValue) }, isSecret: true },
-    });
-    await appendAuditLog({
-      who: req.user?.id ?? null,
-      what: 'SECRET_ROTATE',
-      meta: { key },
-    });
-    res.json({
-      key,
-      updatedAt: updated.updatedAt.toISOString(),
-    });
-  }),
-);
-
-app.get(
-  '/api/v1/flags',
-  requireRole('Medico'),
-  asyncHandler(async (req, res) => {
-    const flags = await prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
-    res.json({
-      items: flags.map((flag) => ({
-        key: flag.key,
-        enabled: flag.enabled,
-        updatedAt: flag.updatedAt.toISOString(),
-      })),
-    });
-  }),
-);
-
-app.put(
-  '/api/v1/flags/:key',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const key = req.params.key.trim();
-    const payload = flagBodySchema.parse(req.body ?? {});
-    const enabled = validateFeatureFlagPayload(payload.enabled);
-    const updated = await prisma.featureFlag.upsert({
-      where: { key },
-      update: { enabled },
-      create: { key, enabled },
-    });
-    await appendAuditLog({
-      who: req.user?.id ?? null,
-      what: 'FLAG_UPDATE',
-      meta: { key },
-    });
-    res.json({
-      flag: {
-        key: updated.key,
-        enabled: updated.enabled,
-        updatedAt: updated.updatedAt.toISOString(),
-      },
-    });
-  }),
-);
-
-app.post(
-  '/api/v1/settings/test/sso-birdid',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const payload = ssoTestSchema.parse(req.body ?? {});
-    const normalizedIssuer = payload.issuer.replace(/\/+$/, '');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    let discovery;
-    try {
-      const response = await fetch(`${normalizedIssuer}/.well-known/openid-configuration`, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) {
-        return res.status(502).json({
-          type: 'about:blank',
-          title: 'Falha na descoberta OIDC',
-          status: 502,
-          detail: `Resposta ${response.status} do provedor`,
-        });
-      }
-      discovery = await response.json();
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        return res.status(504).json({
-          type: 'about:blank',
-          title: 'Tempo excedido',
-          status: 504,
-          detail: 'Discovery OIDC excedeu o tempo limite (8s).',
-        });
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const authorizationEndpoint = discovery.authorization_endpoint;
-    if (!authorizationEndpoint) {
-      return res.status(502).json({
-        type: 'about:blank',
-        title: 'Discovery incompleta',
-        status: 502,
-        detail: 'authorization_endpoint ausente no documento.',
-      });
-    }
-
-    let redirect;
-    try {
-      redirect = new URL(payload.redirectUri);
-    } catch {
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Redirect inválido',
-        status: 400,
-        detail: 'Informe uma URL de retorno válida.',
-      });
-    }
-
-    if (appBaseOrigin && redirect.origin !== appBaseOrigin) {
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Redirect não autorizado',
-        status: 400,
-        detail: `Redirect deve utilizar ${appBaseOrigin}.`,
-      });
-    }
-
-    res.json({
-      ok: true,
-      issuer: discovery.issuer ?? normalizedIssuer,
-      authorizationEndpoint,
-      tokenEndpoint: discovery.token_endpoint ?? null,
-      supportsPkce: Array.isArray(discovery.code_challenge_methods_supported)
-        ? discovery.code_challenge_methods_supported.includes('S256')
-        : false,
-      redirect: redirect.href,
-    });
-  }),
-);
-
-app.post(
-  '/api/v1/settings/export',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const records = await prisma.setting.findMany({
-      where: { isSecret: false },
-      orderBy: { key: 'asc' },
-    });
-    const flags = await prisma.featureFlag.findMany({ orderBy: { key: 'asc' } });
-    res.json({
-      generatedAt: new Date().toISOString(),
-      settings: Object.fromEntries(records.map((record) => [record.key, record.value ?? null])),
-      featureFlags: Object.fromEntries(flags.map((flag) => [flag.key, flag.enabled])),
-    });
-  }),
-);
-
-app.post(
-  '/api/v1/settings/import',
-  sensitiveLimiter,
-  requireRole('Admin'),
-  requireCsrf,
-  asyncHandler(async (req, res) => {
-    const dryRun = req.query?.dryRun !== '0';
-    const payload = settingsImportSchema.parse(req.body ?? {});
-    const incomingSettings = {};
-    const invalidKeys = [];
-    for (const [key, rawValue] of Object.entries(payload.settings ?? {})) {
-      if (SECRET_SCHEMAS?.[key]) {
-        invalidKeys.push(key);
-        continue;
-      }
-      try {
-        incomingSettings[key] = validateSettingPayload(key, rawValue);
-      } catch (error) {
-        if (error instanceof z.ZodError) {
-          throw error;
-        }
-        invalidKeys.push(key);
-      }
-    }
-    if (invalidKeys.length) {
-      return res.status(400).json({
-        type: 'about:blank',
-        title: 'Configurações inválidas',
-        status: 400,
-        detail: `Revise as chaves: ${invalidKeys.join(', ')}`,
-      });
-    }
-    const existingSettings = await prisma.setting.findMany({
-      where: {
-        key: {
-          in: Object.keys(incomingSettings),
-        },
-        isSecret: false,
-      },
-    });
-    const currentMap = Object.fromEntries(existingSettings.map((item) => [item.key, item.value ?? null]));
-    const deltas = compareSettings(currentMap, incomingSettings);
-
-    const flagChanges = Object.entries(payload.flags ?? {}).map(([key, enabled]) => ({
-      key,
-      enabled: validateFeatureFlagPayload(enabled),
-    }));
-
-    if (dryRun) {
-      return res.json({
-        dryRun: true,
-        applied: false,
-        changes: deltas,
-        featureFlags: flagChanges,
-      });
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await Promise.all(
-        deltas.map((delta) =>
-          tx.setting.upsert({
-            where: { key: delta.key },
-            update: { value: incomingSettings[delta.key], isSecret: false },
-            create: { key: delta.key, value: incomingSettings[delta.key], isSecret: false },
-          }),
-        ),
-      );
-      await Promise.all(
-        flagChanges.map((flag) =>
-          tx.featureFlag.upsert({
-            where: { key: flag.key },
-            update: { enabled: flag.enabled },
-            create: { key: flag.key, enabled: flag.enabled },
-          }),
-        ),
-      );
-    });
-
-    await Promise.all(
-      deltas.map((delta) =>
-        appendAuditLog({
-          who: req.user?.id ?? null,
-          what: 'SETTING_UPDATE',
-          meta: { key: delta.key },
-        }),
-      ),
-    );
-    await Promise.all(
-      flagChanges.map((flag) =>
-        appendAuditLog({
-          who: req.user?.id ?? null,
-          what: 'FLAG_UPDATE',
-          meta: { key: flag.key },
-        }),
-      ),
-    );
-
-    res.json({
-      dryRun: false,
-      applied: true,
-      changes: deltas,
-      featureFlags: flagChanges,
-    });
-  }),
-);
+// SPA fallback
+app.get("/app/*", (req, res) => {
+  res.sendFile(path.join(publicDir, "app", "index.html"));
+});
 
 app.use((req, res) => {
   res.status(404).json({
-    type: 'about:blank',
-    title: 'Recurso não encontrado',
+    type: "about:blank",
+    title: "Recurso não encontrado",
     status: 404,
     detail: `${req.method} ${req.path}`,
   });
@@ -1687,44 +1908,46 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
   if (err instanceof z.ZodError) {
     return res.status(400).json({
-      type: 'https://zod.dev/error',
-      title: 'Requisição inválida',
+      type: "https://zod.dev/error",
+      title: "Requisição inválida",
       status: 400,
-      detail: err.issues.map((issue) => issue.message).join(', '),
+      detail: err.issues.map((issue) => issue.message).join(", "),
     });
   }
 
-  if (err?.code === 'P2002') {
+  if (err?.code === "P2002") {
     return res.status(409).json({
-      type: 'about:blank',
-      title: 'Violação de unicidade',
+      type: "about:blank",
+      title: "Violação de unicidade",
       status: 409,
-      detail: 'Documento já cadastrado',
+      detail: "Documento já cadastrado",
     });
   }
 
-  if (err?.code === 'P2025') {
+  if (err?.code === "P2025") {
     return res.status(404).json({
-      type: 'about:blank',
-      title: 'Registro não encontrado',
+      type: "about:blank",
+      title: "Registro não encontrado",
       status: 404,
-      detail: 'Recurso informado não existe mais.',
+      detail: "Recurso informado não existe mais.",
     });
   }
 
   writeError(err);
   res.status(500).json({
-    type: 'about:blank',
-    title: 'Erro interno',
+    type: "about:blank",
+    title: "Erro interno",
     status: 500,
-    detail: 'Falha inesperada. Consulte os logs do servidor.',
+    detail: "Falha inesperada. Consulte os logs do servidor.",
   });
 });
 
 const PORT = Number(process.env.PORT || 3030);
+const HOST = String(process.env.HOST || '0.0.0.0'); // bind all interfaces by default (WSL-friendly)
 
-const server = app.listen(PORT, () => {
-  writeInfo(`API pronta em http://127.0.0.1:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  writeInfo(`API pronta em http://${displayHost}:${PORT}`);
 });
 
 const shutdown = async () => {
@@ -1732,7 +1955,7 @@ const shutdown = async () => {
   server.close(() => process.exit(0));
 };
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 module.exports = app;

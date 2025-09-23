@@ -36,7 +36,7 @@ const tsRecommended = Array.isArray(tseslint.configs.recommendedTypeChecked)
 
 const tsConfigs = tsRecommended.map((config) => ({
   ...config,
-  files: ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts'],
+  files: ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts', 'webapp/src/services/**/*.ts'],
   languageOptions: {
     ...(config.languageOptions ?? {}),
     parserOptions: {

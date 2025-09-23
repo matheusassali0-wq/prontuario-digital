@@ -1,0 +1,633 @@
+diff --git a/package.json b/package.json
+index c7f92d0..13a2c8e 100644
+--- a/package.json
++++ b/package.json
+@@ -1,20 +1,35 @@
+ {
+   "name": "prontuario",
+   "private": true,
+   "type": "module",
+   "scripts": {
+     "dev": "node ./server/server-pro.cjs",
+     "lint": "eslint .",
+     "typecheck": "tsc -p . --noEmit",
+     "build": "tsc -p . --noEmit",
+     "format": "prettier -c .",
+     "webapp:dev": "npm --prefix webapp run dev",
+     "webapp:build": "npm --prefix webapp run build",
+     "webapp:preview": "npm --prefix webapp run preview",
+     "webapp:lint": "npm --prefix webapp run lint",
+     "webapp:typecheck": "npm --prefix webapp run typecheck",
+     "prisma:generate": "prisma generate",
+     "prisma:migrate": "prisma migrate deploy",
+     "prisma:migrate:dev": "prisma migrate dev",
+     "start:prod": "NODE_ENV=production node ./server/server-pro.cjs",
+     "smoke:e2e": "echo 'placeholder'",
+     "test:contracts": "node ./scripts/test-contracts.mjs || true",
+     "test:unit": "node --test tests/unit/*.test.mjs",
+     "test:playwright": "playwright test",
+     "test:all": "npm run test:contracts && npm run test:idempotency && npm run test:sequence && npm run test:unit && npm run test:playwright",
+     "e2e": "playwright test",
+     "e2e:install": "playwright install --with-deps",
+     "test:idempotency": "node ./scripts/test-idempotency.mjs",
+-    "test:sequence": "node ./scripts/test-sequence.mjs"
++    "test:sequence": "node ./scripts/test-sequence.mjs",
++    "otel:status": "node -e \"try{require('./server/otel.cjs').status()}catch(e){console.log('otel: disabled')}}\""
+   },
++  "dependencies": {
++    "pino": "^9.5.0",
++    "pino-http": "^10.3.0",
++    "@opentelemetry/api": "^1.9.0",
++    "@opentelemetry/sdk-node": "^0.55.0",
++    "@opentelemetry/auto-instrumentations-node": "^0.55.0",
++    "@opentelemetry/exporter-trace-otlp-http": "^0.55.0",
++    "@prisma/instrumentation": "^5.22.0",
++    "zod-to-openapi": "^7.1.1"
++  },
+   "devDependencies": {
+     "@eslint/js": "9.36.0",
+     "@playwright/test": "1.55.0",
+@@ -24,6 +39,7 @@
+     "@typescript-eslint/eslint-plugin": "8.44.0",
+     "@typescript-eslint/parser": "8.44.0",
+     "eslint": "9.36.0",
+     "prettier": "3.6.2",
+     "prisma": "5.22.0",
+     "typescript": "5.9.2",
+     "typescript-eslint": "8.44.0"
+   }
+ }
+diff --git a/server/logger.cjs b/server/logger.cjs
+new file mode 100644
+index 0000000..a3f7c3a
+--- /dev/null
++++ b/server/logger.cjs
+@@ -0,0 +1,40 @@
++'use strict';
++const pino = require('pino');
++const pinoHttp = require('pino-http');
++
++const redact = [
++  'req.headers.authorization',
++  'req.headers.cookie',
++  'res.headers.set-cookie',
++  'req.headers.x-csrf-token',
++  'req.headers.x-idempotency-key',
++  'req.headers.x-payload-hash'
++];
++
++const base = pino({
++  level: process.env.LOG_LEVEL || 'info',
++  redact,
++  msgPrefix: '',
++  timestamp: pino.stdTimeFunctions.isoTime
++});
++
++const httpLogger = pinoHttp({
++  logger: base,
++  customLogLevel: (req, res, err) => {
++    if (err) return 'error';
++    if (res.statusCode >= 500) return 'error';
++    if (res.statusCode >= 400) return 'warn';
++    return 'info';
++  },
++  serializers: {
++    req(req) { return { method: req.method, url: req.url }; },
++    res(res) { return { status: res.statusCode }; }
++  }
++});
++
++module.exports = {
++  logger: base,
++  httpLogger
++};
+diff --git a/server/metrics.cjs b/server/metrics.cjs
+new file mode 100644
+index 0000000..3f9b5b8
+--- /dev/null
++++ b/server/metrics.cjs
+@@ -0,0 +1,69 @@
++'use strict';
++const buckets = new Map(); // key -> array durations (ms), capped
++const CAP = 1000;
++function isMutation(m) { m = (m||'GET').toUpperCase(); return m==='POST'||m==='PUT'||m==='PATCH'||m==='DELETE'; }
++function keyFor(req) { return `${(req.method||'GET').toUpperCase()} ${req.route?.path || req.originalUrl || req.url}`; }
++function observe(req, durMs) {
++  if (!isMutation(req.method)) return;
++  const k = keyFor(req);
++  if (!buckets.has(k)) buckets.set(k, []);
++  const arr = buckets.get(k);
++  arr.push(durMs);
++  if (arr.length > CAP) arr.splice(0, arr.length - CAP);
++}
++function percentile(arr, p=0.99) {
++  if (!arr || !arr.length) return 0;
++  const s = Array.from(arr).sort((a,b)=>a-b);
++  const idx = Math.min(s.length-1, Math.floor(p * (s.length-1)));
++  return s[idx];
++}
++function snapshot() {
++  const out = {};
++  for (const [k, arr] of buckets.entries()) {
++    out[k] = { count: arr.length, p50: percentile(arr, 0.5), p90: percentile(arr, 0.9), p99: percentile(arr, 0.99) };
++  }
++  return out;
++}
++module.exports = { observe, snapshot };
+diff --git a/server/featureFlags.cjs b/server/featureFlags.cjs
+new file mode 100644
+index 0000000..b7b0b3f
+--- /dev/null
++++ b/server/featureFlags.cjs
+@@ -0,0 +1,24 @@
++'use strict';
++const FLAGS = {
++  templates: process.env.FEATURE_TEMPLATES === '1',
++  presets: process.env.FEATURE_PRESETS === '1',
++  sso: process.env.FEATURE_SSO === '1'
++};
++function has(feature) { return Boolean(FLAGS[feature]); }
++function requireFeature(feature) {
++  return function(req, res, next) {
++    if (!has(feature)) { res.status(404).json({ error: 'feature_disabled', feature }); return; }
++    next();
++  };
++}
++module.exports = { has, requireFeature };
+diff --git a/server/rbac.cjs b/server/rbac.cjs
+new file mode 100644
+index 0000000..ad8e0a1
+--- /dev/null
++++ b/server/rbac.cjs
+@@ -0,0 +1,33 @@
++'use strict';
++const ROLES = new Set(['Admin','Medico','Atendimento']);
++function roleFromHeaders(req) {
++  const h = req.headers['x-role'] || req.headers['x-user-role'] || '';
++  const r = String(h).trim();
++  return ROLES.has(r) ? r : 'Atendimento';
++}
++function attachUser(req, _res, next) {
++  req.user = req.user || {};
++  req.user.role = roleFromHeaders(req);
++  next();
++}
++function requireRole(roles) {
++  const allow = new Set(Array.isArray(roles)?roles:[roles]);
++  return function(req, res, next) {
++    const r = (req.user && req.user.role) || 'Atendimento';
++    if (!allow.has(r)) { res.status(403).json({ error: 'forbidden', need: Array.from(allow), got: r }); return; }
++    next();
++  };
++}
++module.exports = { attachUser, requireRole };
+diff --git a/server/openapi.cjs b/server/openapi.cjs
+new file mode 100644
+index 0000000..6aa1b70
+--- /dev/null
++++ b/server/openapi.cjs
+@@ -0,0 +1,77 @@
++'use strict';
++const { OpenAPIRegistry, OpenApiGeneratorV3 } = require('zod-to-openapi');
++function isZodSchema(obj) { return !!(obj && obj._def && obj.parse && obj.safeParse); }
++function collectContracts() {
++  try {
++    const all = require('@contracts'); // espera schemas Zod exportados
++    const entries = Object.entries(all).filter(([,v]) => isZodSchema(v));
++    return Object.fromEntries(entries);
++  } catch { return {}; }
++}
++function buildSpec({ title='Prontuario API', version='1.0.0', servers=['/api','/api/v1'] } = {}) {
++  const registry = new OpenAPIRegistry();
++  const schemas = collectContracts();
++  for (const [name, schema] of Object.entries(schemas)) {
++    registry.register(name, schema);
++  }
++  const generator = new OpenApiGeneratorV3(registry.definitions);
++  const doc = generator.generateDocument({
++    openapi: '3.0.3',
++    info: { title, version },
++    servers: servers.map(u=>({ url: u }))
++  });
++  return doc;
++}
++module.exports = { buildSpec };
+diff --git a/server/otel.cjs b/server/otel.cjs
+new file mode 100644
+index 0000000..e1f5481
+--- /dev/null
++++ b/server/otel.cjs
+@@ -0,0 +1,53 @@
++'use strict';
++let sdk = null;
++function start() {
++  if (process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
++    try {
++      const { NodeSDK } = require('@opentelemetry/sdk-node');
++      const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
++      const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
++      const { PrismaInstrumentation } = require('@prisma/instrumentation');
++      const exporter = new OTLPTraceExporter({
++        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT.replace(/\/+$/,'') + '/v1/traces',
++        headers: process.env.OTEL_EXPORTER_OTLP_HEADERS || undefined
++      });
++      sdk = new NodeSDK({
++        traceExporter: exporter,
++        instrumentations: [ getNodeAutoInstrumentations(), new PrismaInstrumentation() ]
++      });
++      sdk.start().catch(()=>{});
++      return true;
++    } catch { return false; }
++  }
++  return false;
++}
++function shutdown() { if (sdk && sdk.shutdown) return sdk.shutdown(); }
++function status() {
++  console.log(process.env.OTEL_EXPORTER_OTLP_ENDPOINT ? 'otel: enabled' : 'otel: disabled (no endpoint)');
++}
++module.exports = { start, shutdown, status };
+diff --git a/server/server-pro.cjs b/server/server-pro.cjs
+index a3db9f4..5dfc6ac 100644
+--- a/server/server-pro.cjs
++++ b/server/server-pro.cjs
+@@ -1,19 +1,44 @@
+ 'use strict';
+ const crypto = require('node:crypto');
+ const fs = require('node:fs');
+ const path = require('node:path');
+ const { append: appendAudit } = require('./audit.cjs');
++const { logger, httpLogger } = require('./logger.cjs');
++const metrics = require('./metrics.cjs');
++const otel = require('./otel.cjs');
++const { attachUser, requireRole } = require('./rbac.cjs');
++const { requireFeature } = require('./featureFlags.cjs');
++otel.start();
+
+ let prisma;
+ try { const { PrismaClient } = require('@prisma/client'); prisma = global.prisma || new PrismaClient(); if (!global.prisma) global.prisma = prisma; } catch (_) { prisma = null; }
+
+ // ... contexto existente do seu servidor (app, routers, etc.) ...
+
++// ===== Log HTTP + métricas p99 =====
++app.use((req, res, next) => {
++  const t0 = Date.now();
++  res.on('finish', () => metrics.observe(req, Date.now() - t0));
++  next();
++});
++app.use(httpLogger);
++
+ // ====== SECURITY HEADERS (CSP) + CSRF (double-submit) ======
+ function parseCookies(h) {
+   const out = {}; if (!h) return out;
+   for (const p of h.split(';')) { const [k, v] = p.split('=')..map(s => (s || '').trim()); if (k) out[k] = decodeURIComponent(v || ''); }
+   return out;
+ }
+@@ -129,6 +154,18 @@ app.get(['/api/pacientes/:id/export/jsonld', '/api/v1/pacientes/:id/export/jsonl
+   }
+ });
+
++// ===== RBAC & Feature Flags (exemplos de uso em rotas sensíveis) =====
++app.post(['/api/v1/prescriptions','/api/prescriptions'],
++  attachUser,
++  requireRole(['Admin','Medico']),
++  requireFeature('templates'),
++  asyncHandler(async (req, res) => {
++    // ... sua lógica de criação de prescrição ...
++    res.status(201).json({ ok: true });
++  })
++);
++
++// ===== MÉTRICAS p99 em JSON =====
++app.get(['/api/metrics','/api/v1/metrics'], (req,res)=> res.json({ p: metrics.snapshot() }));
+
+ // ... demais rotas existentes ...
+
+
+diff --git a/server/server-pro.cjs b/server/server-pro.cjs
+index 5dfc6ac..8a8f0f2 100644
+--- a/server/server-pro.cjs
++++ b/server/server-pro.cjs
+@@ -154,6 +154,30 @@ app.get(['/api/pacientes/:id/export/jsonld', '/api/v1/pacientes/:id/export/jsonl
+   }
+ });
+
++// ===== OpenAPI (zod-to-openapi) =====
++const { buildSpec } = require('./openapi.cjs');
++app.get(['/api/docs','/api/v1/docs'], (req, res) => {
++  try {
++    const doc = buildSpec({
++      title: 'Prontuario API',
++      version: process.env.API_VERSION || '1.0.0',
++      servers: [ (req.baseUrl||'') + '/api', (req.baseUrl||'') + '/api/v1' ]
++    });
++    res.setHeader('Content-Type','application/json');
++    res.status(200).end(JSON.stringify(doc));
++  } catch (e) {
++    res.status(500).json({ error: 'openapi_failed' });
++  }
++});
++
++// Log de arranque
++logger.info({ msg: 'observability_ready', otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT });
++
+ diff --git a/webapp/package.json b/webapp/package.json
+ new file mode 100644
+ index 0000000..8a3e11d
+ --- /dev/null
+ +++ b/webapp/package.json
+@@ -0,0 +1,21 @@
++{
++  "name": "webapp",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "vite build",
++    "preview": "vite preview",
++    "lint": "eslint .",
++    "typecheck": "tsc -p . --noEmit"
++  },
++  "dependencies": {
++    "react": "^19.1.1",
++    "react-dom": "^19.1.1",
++    "react-router-dom": "^7.9.1",
++    "zustand": "^4.5.5"
++  },
++  "devDependencies": {
++    "typescript": "^5.9.2"
++  }
++}
+ diff --git a/webapp/src/stores/ui.ts b/webapp/src/stores/ui.ts
+ new file mode 100644
+ index 0000000..b8c1d5a
+ --- /dev/null
+ +++ b/webapp/src/stores/ui.ts
+@@ -0,0 +1,54 @@
++import { create } from 'zustand';
++
++export type Toast = { id: string; type: 'info'|'success'|'warn'|'error'; msg: string };
++type UIState = {
++  activePatientId: string|null;
++  offlineQueue: Array<Record<string, unknown>>;
++  toasts: Toast[];
++  paletteOpen: boolean;
++  setActivePatient(id: string|null): void;
++  enqueueOffline(meta: Record<string, unknown>): void;
++  drainOffline(): Array<Record<string, unknown>>;
++  addToast(t: Omit<Toast,'id'>): void;
++  removeToast(id: string): void;
++  openPalette(): void;
++  closePalette(): void;
++};
++
++export const useUIStore = create<UIState>((set, get) => ({
++  activePatientId: null,
++  offlineQueue: [],
++  toasts: [],
++  paletteOpen: false,
++  setActivePatient: (id) => set({ activePatientId: id }),
++  enqueueOffline: (meta) => set({ offlineQueue: [...get().offlineQueue, { ...meta, queuedAt: new Date().toISOString() }] }),
++  drainOffline: () => { const q = get().offlineQueue; set({ offlineQueue: [] }); return q; },
++  addToast: (t) => set({ toasts: [...get().toasts, { ...t, id: crypto.randomUUID() }] }),
++  removeToast: (id) => set({ toasts: get().toasts.filter(x=>x.id!==id) }),
++  openPalette: () => set({ paletteOpen: true }),
++  closePalette: () => set({ paletteOpen: false })
++}));
++
++// Selectors
++export const selectActivePatientId = (s: UIState) => s.activePatientId;
++export const selectPaletteOpen = (s: UIState) => s.paletteOpen;
++export const selectToasts = (s: UIState) => s.toasts;
+ diff --git a/webapp/src/components/Toasts.tsx b/webapp/src/components/Toasts.tsx
+ new file mode 100644
+ index 0000000..a1a6e0b
+ --- /dev/null
+ +++ b/webapp/src/components/Toasts.tsx
+@@ -0,0 +1,31 @@
++import { useEffect } from 'react';
++import { useUIStore, selectToasts } from '../stores/ui';
++
++export default function Toasts() {
++  const toasts = useUIStore(selectToasts);
++  const removeToast = useUIStore(s => s.removeToast);
++  useEffect(() => {
++    const timers = toasts.map(t => setTimeout(()=>removeToast(t.id), 4000));
++    return () => { for (const id of timers) clearTimeout(id); };
++  }, [toasts, removeToast]);
++  return (
++    <div style={{ position:'fixed', right:16, bottom:16, display:'flex', flexDirection:'column', gap:8, zIndex:9999 }}>
++      {toasts.map(t => (
++        <div key={t.id} style={{ padding:'10px 14px', borderRadius:12, boxShadow:'0 6px 20px rgba(0,0,0,0.12)', background:'#fff', minWidth:260 }}>
++          <strong style={{ textTransform:'uppercase', fontSize:12, opacity:0.7 }}>{t.type}</strong>
++          <div style={{ fontSize:14 }}>{t.msg}</div>
++        </div>
++      ))}
++    </div>
++  );
++}
+ diff --git a/webapp/src/components/CommandPalette.tsx b/webapp/src/components/CommandPalette.tsx
+ new file mode 100644
+ index 0000000..c62a6c1
+ --- /dev/null
+ +++ b/webapp/src/components/CommandPalette.tsx
+@@ -0,0 +1,85 @@
++import { useEffect, useMemo, useRef } from 'react';
++import { useUIStore, selectPaletteOpen } from '../stores/ui';
++
++type Action = { id: string; label: string; run(): void };
++
++export default function CommandPalette() {
++  const open = useUIStore(selectPaletteOpen);
++  const close = useUIStore(s=>s.closePalette);
++  const inputRef = useRef<HTMLInputElement>(null);
++  const actions = useMemo<Action[]>(() => [
++    { id:'newPatient', label:'Novo Paciente', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'newPatient' })); } },
++    { id:'findPatient', label:'Buscar Paciente', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'findPatient' })); } },
++    { id:'newNoteFirst', label:'Nova Evolução (1ª)', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'newNoteFirst' })); } },
++    { id:'newNoteReturn', label:'Nova Evolução (Retorno)', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'newNoteReturn' })); } },
++    { id:'orderExams', label:'Pedir Exames (preset)', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'orderExams' })); } },
++    { id:'newRx', label:'Nova Prescrição', run(){ window.dispatchEvent(new CustomEvent('app:command',{ detail:'newPrescription' })); } }
++  ],[]);
++  useEffect(() => {
++    if (open) setTimeout(()=>inputRef.current?.focus(), 0);
++  }, [open]);
++  if (!open) return null;
++  return (
++    <div onClick={close} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.15)', backdropFilter:'blur(1px)', zIndex:9998, display:'grid', placeItems:'start center', paddingTop:120}}>
++      <div onClick={e=>e.stopPropagation()} style={{ width:560, background:'#fff', borderRadius:16, boxShadow:'0 20px 60px rgba(0,0,0,0.2)', overflow:'hidden' }}>
++        <div style={{ padding:12, borderBottom:'1px solid #eee' }}>
++          <input ref={inputRef} placeholder="Digite um comando…" style={{ width:'100%', outline:'none', border:'none', fontSize:16 }} />
++        </div>
++        <ul style={{ listStyle:'none', margin:0, padding:8 }}>
++          {actions.map(a=>([
++            <li key={a.id} style={{ padding:'10px 12px', borderRadius:10, cursor:'pointer' }}
++                onClick={()=>{ a.run(); close(); }}>
++              {a.label}
++            </li>
++          ]))}
++        </ul>
++      </div>
++    </div>
++  );
++}
+ diff --git a/webapp/src/hooks/hotkeys.ts b/webapp/src/hooks/hotkeys.ts
+ new file mode 100644
+ index 0000000..8d9ee0b
+ --- /dev/null
+ +++ b/webapp/src/hooks/hotkeys.ts
+@@ -0,0 +1,35 @@
++import { useEffect } from 'react';
++import { useUIStore } from '../stores/ui';
++
++export function useGlobalHotkeys() {
++  const openPalette = useUIStore(s=>s.openPalette);
++  useEffect(() => {
++    const onKey = (e: KeyboardEvent) => {
++      const isCmd = e.metaKey || e.ctrlKey;
++      if (isCmd && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
++      if (isCmd && e.key.toLowerCase() === 's') { e.preventDefault(); window.dispatchEvent(new CustomEvent('app:force-save')); return; }
++      if (isCmd && e.key.toLowerCase() === 'p') { e.preventDefault(); window.dispatchEvent(new CustomEvent('app:print')); return; }
++      if (!isCmd && e.key === 'Enter') { window.dispatchEvent(new CustomEvent('app:save')); }
++    };
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++  }, [openPalette]);
++}
+ diff --git a/webapp/src/services/api.ts b/webapp/src/services/api.ts
+ new file mode 100644
+ index 0000000..c5f6ed1
+ --- /dev/null
+ +++ b/webapp/src/services/api.ts
+@@ -0,0 +1,72 @@
++export async function csrf(): Promise<string> {
++  for (const p of ['/api/v1/csrf','/api/csrf']) {
++    const r = await fetch(p, { credentials:'include' }).catch(()=>null as any);
++    if (r && (r.status===200 || r.status===304)) {
++      const hdr = r.headers.get('set-cookie') || '';
++      const m = /csrf=([^;]+)/.exec(hdr || '');
++      return m?.[1] || '';
++    }
++  }
++  return '';
++}
++
++export type FetchOpts = { method?: string; headers?: Record<string,string>; body?: any; idempotency?: boolean; retries?: number; backoffMs?: number };
++
++export async function apiFetch(path: string, opts: FetchOpts = {}) {
++  const method = (opts.method || 'GET').toUpperCase();
++  const headers: Record<string,string> = { ...(opts.headers||{}), 'accept':'application/json' };
++  let body: BodyInit|undefined;
++  if (opts.body != null) { headers['content-type'] = 'application/json'; body = JSON.stringify(opts.body); }
++  if (method !== 'GET' && method !== 'HEAD') {
++    const t = await csrf();
++    if (t) headers['x-csrf-token'] = t;
++    if (opts.idempotency) {
++      headers['Idempotency-Key'] = crypto.randomUUID();
++      headers['X-Payload-Hash'] = await sha256(body ? String(body) : '');
++    }
++  }
++  const retries = opts.retries ?? 2;
++  const backoff = opts.backoffMs ?? 400;
++  let lastErr: any = null;
++  for (let i=0;i<=retries;i++) {
++    try {
++      const r = await fetch(path, { method, headers, body, credentials:'include' });
++      if (r.status>=500 && i<retries) { await sleep(backoff * (i+1)); continue; }
++      const ct = r.headers.get('content-type') || '';
++      const data = /json/.test(ct) ? await r.json().catch(()=>null) : await r.text();
++      if (!r.ok) throw new Error(`HTTP ${r.status}`);
++      return data;
++    } catch (e) { lastErr = e; if (i<retries) await sleep(backoff * (i+1)); }
++  }
++  throw lastErr;
++}
++
++async function sha256(s: string) {
++  const enc = new TextEncoder().encode(s);
++  const buf = await crypto.subtle.digest('SHA-256', enc);
++  const arr = Array.from(new Uint8Array(buf));
++  return arr.map(b=>b.toString(16).padStart(2,'0')).join('');
++}
++function sleep(ms:number){ return new Promise(r=>setTimeout(r,ms)); }
+ diff --git a/webapp/src/services/authSSO.ts b/webapp/src/services/authSSO.ts
+ new file mode 100644
+ index 0000000..7c0b7b2
+ --- /dev/null
+ +++ b/webapp/src/services/authSSO.ts
+@@ -0,0 +1,8 @@
++import { apiFetch } from './api';
++export async function ssoLogin() {
++  return apiFetch('/api/v1/auth/sso/start', { method:'POST', idempotency:true, retries:1 });
++}
++export async function ssoCallback(params: Record<string,string>) {
++  return apiFetch('/api/v1/auth/sso/callback', { method:'POST', body: params });
++}
++export default { ssoLogin, ssoCallback };
+ diff --git a/webapp/src/services/prescriptions.ts b/webapp/src/services/prescriptions.ts
+ new file mode 100644
+ index 0000000..8d9b0f7
+ --- /dev/null
+ +++ b/webapp/src/services/prescriptions.ts
+@@ -0,0 +1,9 @@
++import { apiFetch } from './api';
++export async function printPrescription(payload: { patientId: string; items?: string[] }) {
++  return apiFetch('/api/prescricoes/print', { method:'POST', body: payload, idempotency:true, retries:2, backoffMs:500 });
++}
++export async function createPrescription(payload: any) {
++  return apiFetch('/api/v1/prescriptions', { method:'POST', body: payload, idempotency:true });
++}
++export default { printPrescription, createPrescription };
+ diff --git a/webapp/src/services/exams.ts b/webapp/src/services/exams.ts
+ new file mode 100644
+ index 0000000..0a1a66c
+ --- /dev/null
+ +++ b/webapp/src/services/exams.ts
+@@ -0,0 +1,7 @@
++import { apiFetch } from './api';
++export async function orderExams(payload: { patientId: string; preset: string; items: string[] }) {
++  return apiFetch('/api/v1/exams/emit', { method:'POST', body: payload, idempotency:true });
++}
++export default { orderExams };
+ diff --git a/webapp/src/services/notes.ts b/webapp/src/services/notes.ts
+ new file mode 100644
+ index 0000000..8a1aa23
+ --- /dev/null
+ +++ b/webapp/src/services/notes.ts
+@@ -0,0 +1,12 @@
++import { apiFetch } from './api';
++export async function createNote(payload: { patientId: string; template?: string; content?: string }) {
++  return apiFetch('/api/v1/notes', { method:'POST', body: payload, idempotency:true });
++}
++export async function patchNote(id: string, content: string) {
++  return apiFetch(`/api/v1/notes/${id}`, { method:'PATCH', body: { content } });
++}
++export async function printNote(id: string) {
++  return apiFetch(`/api/v1/notes/${id}/print`, { method:'GET' });
++}
++export default { createNote, patchNote, printNote };
+ diff --git a/webapp/src/main.tsx b/webapp/src/main.tsx
+ new file mode 100644
+ index 0000000..5a6a1c4
+ --- /dev/null
+ +++ b/webapp/src/main.tsx
+@@ -0,0 +1,35 @@
++import React from 'react';
++import { createRoot } from 'react-dom/client';
++import CommandPalette from './components/CommandPalette';
++import Toasts from './components/Toasts';
++import { useGlobalHotkeys } from './hooks/hotkeys';
++
++function AppShell() {
++  useGlobalHotkeys();
++  return (
++    <>
++      <CommandPalette />
++      <Toasts />
++    </>
++  );
++}
++
++const mount = document.getElementById('root');
++if (mount) {
++  createRoot(mount).render(<AppShell />);
++}

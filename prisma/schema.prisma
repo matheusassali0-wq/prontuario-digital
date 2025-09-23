@@ -20,6 +20,8 @@ model Patient {
   updatedAt    DateTime @updatedAt
   Events       Event[]
   Encounters   Encounter[]
+  Prescriptions Prescription[]
+  ExamOrders   ExamOrder[]
 }
 
 model Event {
@@ -114,4 +116,35 @@ model Attachment {
   note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
   @@index([noteId, createdAt])
+}
+
+/// Prescriptions emitted (printing or otherwise). Items are stored as JSON array with fields
+/// { ordem, nome, dose, via, horario, observacao }.
+model Prescription {
+  id         String   @id @default(cuid())
+  number     Int      @unique @default(dbgenerated("nextval('prescription_seq')"))
+  patientId  String
+  formato    String
+  cid        String?
+  observacoes String?
+  items      Json
+  createdAt  DateTime @default(now())
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@index([patientId, number])
+  @@unique([patientId, number])
+}
+
+model ExamOrder {
+  id         String   @id @default(cuid())
+  number     Int      @unique @default(dbgenerated("nextval('exam_order_seq')"))
+  patientId  String
+  description String?
+  createdAt  DateTime @default(now())
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@index([patientId, number])
+  @@unique([patientId, number])
 }

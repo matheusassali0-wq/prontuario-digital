@@ -1,32 +1,32 @@
-name: CI (lint • typecheck • build)
+name: CI (pnpm • lint • typecheck • build)
 
 on:
   push:
     branches: [main]
     paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '**/.vscode/**'
-      - 'exports/**'
-      - 'data/**'
-      - 'certs/**'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.jpeg'
-      - '**/*.pdf'
+      - "**/*.md"
+      - "docs/**"
+      - "**/.vscode/**"
+      - "exports/**"
+      - "data/**"
+      - "certs/**"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.pdf"
   pull_request:
     branches: [main]
     paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '**/.vscode/**'
-      - 'exports/**'
-      - 'data/**'
-      - 'certs/**'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.jpeg'
-      - '**/*.pdf'
+      - "**/*.md"
+      - "docs/**"
+      - "**/.vscode/**"
+      - "exports/**"
+      - "data/**"
+      - "certs/**"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.pdf"
   workflow_dispatch:
 
 permissions:
@@ -74,42 +74,46 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          cache: pnpm
           cache-dependency-path: |
-            package-lock.json
-            webapp/package-lock.json
-            server/package-lock.json
-      - run: corepack enable || true
+            pnpm-lock.yaml
+            webapp/pnpm-lock.yaml
 
-      - name: Instalar deps (raiz)
+      - name: Enable Corepack (PNPM)
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install deps (root)
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate (root)
+        if: hashFiles('pnpm-lock.yaml') != '' && hashFiles('prisma/schema.prisma') != ''
+        run: pnpm dlx prisma generate
+
+      - name: Lint (root)
         if: hashFiles('package.json') != ''
-        run: npm ci --include=dev
+        run: pnpm run -s lint || pnpm dlx eslint . --max-warnings=0
 
-      - name: Lint (raiz)
-        if: hashFiles('package.json') != ''
-        run: npm run -s lint || npx eslint . --max-warnings=0
-
-      - name: Typecheck (raiz)
+      - name: Typecheck (root)
         if: hashFiles('tsconfig.json') != ''
-        run: npm run -s typecheck || npx tsc -p . --noEmit
+        run: pnpm run -s typecheck || pnpm dlx tsc -p . --noEmit
 
-      - name: Instalar deps (webapp)
-        if: hashFiles('webapp/package.json') != ''
-        working-directory: webapp
-        run: npm ci --include=dev
+      - name: Install deps (webapp)
+        if: hashFiles('webapp/pnpm-lock.yaml') != ''
+        run: pnpm --dir webapp install --frozen-lockfile
 
       - name: Lint (webapp)
         if: hashFiles('webapp/package.json') != ''
-        working-directory: webapp
-        run: npm run -s lint || npx eslint . --max-warnings=0
+        run: pnpm --dir webapp run -s lint || pnpm --dir webapp dlx eslint . --max-warnings=0
 
       - name: Typecheck (webapp)
         if: hashFiles('webapp/tsconfig.json') != ''
-        working-directory: webapp
-        run: npm run -s typecheck || npx tsc -p . --noEmit
+        run: pnpm --dir webapp run -s typecheck || pnpm --dir webapp dlx tsc -p . --noEmit
 
   build:
-    name: 🏗️ Build (Node 20)
+    name: 🏗️ Build (Node 20, pnpm)
     runs-on: ubuntu-latest
     needs: lint_typecheck
     timeout-minutes: 20
@@ -118,21 +122,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          cache: npm
+          cache: pnpm
           cache-dependency-path: |
-            package-lock.json
-            webapp/package-lock.json
-            server/package-lock.json
+            pnpm-lock.yaml
+            webapp/pnpm-lock.yaml
 
-      - name: Build raiz
+      - name: Enable Corepack (PNPM)
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install deps (root)
+        if: hashFiles('pnpm-lock.yaml') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Build root
         if: hashFiles('package.json') != ''
         run: |
-          npm ci --include=dev
-          npm run -s build || (npx vite build || npx tsc -p . --noEmit)
+          pnpm run -s build || pnpm dlx tsc -p . --noEmit
+
+      - name: Install deps (webapp)
+        if: hashFiles('webapp/pnpm-lock.yaml') != ''
+        run: pnpm --dir webapp install --frozen-lockfile
 
       - name: Build webapp
         if: hashFiles('webapp/package.json') != ''
-        working-directory: webapp
         run: |
-          npm ci --include=dev
-          npm run -s build || (npx vite build || npx tsc -p . --noEmit)
+          pnpm --dir webapp run -s build || pnpm --dir webapp dlx vite build
