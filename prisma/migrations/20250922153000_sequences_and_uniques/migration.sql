@@ -19,7 +19,6 @@ BEGIN
   END IF;
 END $$;
 
--- Composite unique to avoid collisions per patient
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -27,16 +26,30 @@ BEGIN
   ) THEN
     EXECUTE 'CREATE UNIQUE INDEX "Prescription_patientId_number_key" ON "Prescription"("patientId", "number")';
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes WHERE indexname = 'ExamOrder_patientId_number_key'
+  -- Create ExamOrder unique only if table exists
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'ExamOrder'
   ) THEN
-    EXECUTE 'CREATE UNIQUE INDEX "ExamOrder_patientId_number_key" ON "ExamOrder"("patientId", "number")';
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_indexes WHERE indexname = 'ExamOrder_patientId_number_key'
+    ) THEN
+      EXECUTE 'CREATE UNIQUE INDEX "ExamOrder_patientId_number_key" ON "ExamOrder"("patientId", "number")';
+    END IF;
   END IF;
 END $$;
 
--- Sync sequences to max(existing)+1 to avoid conflicts
 SELECT setval('prescription_seq', COALESCE((SELECT MAX("number") FROM "Prescription"), 0) + 1, false);
-SELECT setval('exam_order_seq', COALESCE((SELECT MAX("number") FROM "ExamOrder"), 0) + 1, false);
+-- Guard exam_order_seq sync if table does not exist yet
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'ExamOrder'
+  ) THEN
+    PERFORM setval('exam_order_seq', COALESCE((SELECT MAX("number") FROM "ExamOrder"), 0) + 1, false);
+  ELSE
+    PERFORM setval('exam_order_seq', 1, false);
+  END IF;
+END $$;
 
 -- Optional: migrate legacy Counter table if present
 DO $$

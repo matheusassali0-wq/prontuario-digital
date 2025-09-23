@@ -116,6 +116,24 @@ const writeError = (error) => {
   process.stderr.write(`${output}\n`);
 };
 
+const { httpLogger, logger } = (() => {
+  try {
+    return require("./logger.cjs");
+  } catch {
+    return { httpLogger: (_req, _res, next) => next(), logger: console };
+  }
+})();
+const metrics = (() => {
+  try {
+    return require("./metrics.cjs");
+  } catch {
+    return { observe: () => {}, snapshot: () => ({}) };
+  }
+})();
+try {
+  require("./otel.cjs").start();
+} catch {}
+
 const app = express();
 app.disable("x-powered-by");
 
@@ -130,12 +148,37 @@ const apiLimiter = rateLimit({
 
 const isProd =
   String(process.env.NODE_ENV || "").toLowerCase() === "production";
+
+// Build connect-src list from ENV, with sensible defaults for Memed and Bird ID (Soluti)
 const connectSrc = ["'self'"];
 if (!isProd) {
-  connectSrc.push("ws:", "http://localhost:5173");
+  // Allow Vite dev server and WebSockets in non-production
+  connectSrc.push("ws:", "http://localhost:5173", "http://127.0.0.1:5173");
 }
-if (process.env.BIRDID_ISSUER) connectSrc.push(process.env.BIRDID_ISSUER);
-if (process.env.MEMED_SSO_URL) connectSrc.push(process.env.MEMED_SSO_URL);
+// Defaults (can be overridden via ENV as space-separated lists)
+const MEMED_DEFAULT = [
+  "https://memed.com.br",
+  "https://app.memed.com.br",
+  "https://validador.memed.com.br",
+  "https://account.memed.com.br",
+];
+const BIRDID_DEFAULT = [
+  "https://api.birdid.com.br",
+  "https://portal.birdid.com.br",
+  "https://painel.birdid.com.br",
+];
+const splitHosts = (s) =>
+  String(s || "")
+    .split(/\s+/)
+    .filter(Boolean);
+const memedHosts = splitHosts(
+  process.env.MEMED_CONNECT || MEMED_DEFAULT.join(" ")
+);
+const birdHosts = splitHosts(
+  process.env.BIRDID_CONNECT || BIRDID_DEFAULT.join(" ")
+);
+const extraHosts = splitHosts(process.env.CSP_CONNECT_EXTRA || "");
+connectSrc.push(...memedHosts, ...birdHosts, ...extraHosts);
 
 app.use(
   helmet({
@@ -143,40 +186,36 @@ app.use(
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        // connect-src assembled above from ENV with defaults
         connectSrc,
+        objectSrc: ["'none'"],
       },
     },
+    referrerPolicy: { policy: "no-referrer" },
     crossOriginResourcePolicy: { policy: "same-origin" },
   })
 );
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on("finish", () => metrics.observe(req, Date.now() - t0));
+  next();
+});
+app.use(httpLogger);
 app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 app.use(apiLimiter);
-// Structured HTTP logs
-app.use((req, res, next) => {
-  const start = Date.now();
-  const { method, url } = req;
-  res.on("finish", () =>
-    writeInfo(
-      JSON.stringify({
-        t: new Date().toISOString(),
-        level: "info",
-        msg: "http_request",
-        method,
-        url,
-        status: res.statusCode,
-        dur_ms: Date.now() - start,
-        ua: req.headers["user-agent"] || null,
-      })
-    )
-  );
-  next();
-});
+// p99 metrics endpoint
+app.get(["/api/metrics", "/api/v1/metrics"], (_req, res) =>
+  res.json({ p: metrics.snapshot() })
+);
 
 // Idempotency TTL (seconds); can be overridden via env IDEMP_TTL_SEC
 const IDEMP_TTL_SEC = Number(process.env.IDEMP_TTL_SEC || 600);
@@ -306,6 +345,137 @@ if (process.env.ENABLE_CSRF === "1") {
     next();
   });
 }
+
+// Browser-friendly CSRF enforcement (double-submit) always available endpoint to fetch token
+app.get(["/api/csrf", "/api/v1/csrf"], (req, res) => {
+  // Reuse existing optional CSRF middleware token mechanics if enabled; otherwise mint a token here
+  const parseCookies = (cookieHeader) => {
+    const out = {};
+    if (!cookieHeader) return out;
+    String(cookieHeader)
+      .split(";")
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .forEach((pair) => {
+        const idx = pair.indexOf("=");
+        if (idx > -1) {
+          const k = decodeURIComponent(pair.slice(0, idx).trim());
+          const v = decodeURIComponent(pair.slice(idx + 1).trim());
+          out[k] = v;
+        }
+      });
+    return out;
+  };
+  const cookies = parseCookies(req.headers.cookie);
+  let token = cookies["csrf-token"] || cookies["csrf"];
+  if (!token) {
+    token = crypto.randomBytes(16).toString("hex");
+    const attrs = ["Path=/", "SameSite=Lax"];
+    if (isProd) attrs.push("Secure");
+    res.setHeader("Set-Cookie", `csrf=${token}; ${attrs.join("; ")}`);
+  }
+  res.json({ csrfToken: token });
+});
+
+// Append WORM audit entries for mutating requests
+try {
+  const { append: appendAudit } = require("./audit.cjs");
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      const method = (req.method || "GET").toUpperCase();
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        const actor =
+          req.headers["x-user-id"] || req.headers["x-actor"] || null;
+        const patientId = req.headers["x-patient-id"] || null;
+        try {
+          appendAudit({
+            ts: new Date().toISOString(),
+            method,
+            path: req.originalUrl || req.url,
+            status: res.statusCode,
+            actor,
+            patientId,
+            durationMs: Date.now() - start,
+          });
+        } catch {}
+      }
+    });
+    next();
+  });
+} catch {}
+
+// LGPD portability: JSON-LD export stub
+app.get(
+  ["/api/v1/pacientes/:id/export/jsonld", "/api/pacientes/:id/export/jsonld"],
+  async (req, res, next) => {
+    try {
+      const patient = await prisma.patient.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, birthDate: true, document: true },
+      });
+      if (!patient) return res.status(404).json({ error: "patient_not_found" });
+      const base = `${req.protocol}://${req.get("host")}`;
+      res.setHeader("Content-Type", "application/ld+json");
+      return res.status(200).end(
+        JSON.stringify({
+          "@context": {
+            "@vocab": "https://schema.org/",
+            record: {
+              "@id": "https://schema.org/MedicalRecord",
+              "@type": "@id",
+            },
+          },
+          "@id": `${base}/api/v1/pacientes/${patient.id}`,
+          "@type": "Person",
+          identifier: patient.document || null,
+          name: patient.name || null,
+          birthDate: patient.birthDate ? patient.birthDate.toISOString() : null,
+          records: [],
+        })
+      );
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// RBAC/Feature-flag protected example (creation via new endpoint)
+try {
+  const { attachUser, requireRole } = require("./rbac.cjs");
+  const { requireFeature } = require("./featureFlags.cjs");
+  app.post(
+    ["/api/v1/prescriptions", "/api/prescriptions"],
+    attachUser,
+    requireRole(["Admin", "Medico"]),
+    requireFeature("templates"),
+    (req, res) => {
+      res.status(201).json({ ok: true });
+    }
+  );
+} catch {}
+
+// OpenAPI docs from zod-to-openapi if contracts available
+try {
+  const { buildSpec } = require("./openapi.cjs");
+  app.get(["/api/docs", "/api/v1/docs"], (req, res) => {
+    try {
+      const doc = buildSpec({
+        title: "Prontuario API",
+        version: process.env.API_VERSION || "1.0.0",
+        servers: ["/api", "/api/v1"],
+      });
+      res.setHeader("Content-Type", "application/json");
+      res.status(200).end(JSON.stringify(doc));
+    } catch (e) {
+      res.status(500).json({ error: "openapi_failed" });
+    }
+  });
+  logger.info({
+    msg: "observability_ready",
+    otel: !!process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  });
+} catch {}
 
 const PATIENT_PAGE_SIZE_DEFAULT = 15;
 
@@ -1670,9 +1840,11 @@ app.use((err, req, res, _next) => {
 });
 
 const PORT = Number(process.env.PORT || 3030);
+const HOST = String(process.env.HOST || '0.0.0.0'); // bind all interfaces by default (WSL-friendly)
 
-const server = app.listen(PORT, () => {
-  writeInfo(`API pronta em http://127.0.0.1:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  writeInfo(`API pronta em http://${displayHost}:${PORT}`);
 });
 
 const shutdown = async () => {

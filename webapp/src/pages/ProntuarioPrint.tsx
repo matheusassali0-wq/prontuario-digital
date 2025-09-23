@@ -1,24 +1,10 @@
 import { useEffect, useState } from 'react';
+import type { PatientRecord } from '@contracts/patients';
+import type { NoteRecord } from '@contracts/notes';
 import { useNavigate, useParams } from 'react-router-dom';
 
-type Patient = {
-  id: string;
-  name: string;
-  document: string | null;
-  birthDate: string | null;
-};
-
-type Note = {
-  id: string;
-  encounterId: string;
-  contentText: string;
-  updatedAt: string;
-  encounter?: {
-    id: string;
-    patientId: string;
-    date: string;
-  };
-};
+type Patient = PatientRecord;
+type Note = NoteRecord & { encounter?: { id: string; patientId: string; date: string } };
 
 const resolveApiBase = () => {
   const meta = import.meta as { env?: Record<string, string | undefined> };
@@ -145,7 +131,7 @@ export default function ProntuarioPrint() {
         <section className="print-section">
           <h2>Evolução</h2>
           <article className="print-note" aria-label="Conteúdo da evolução">
-            {note.contentText.split('\n').map((line, index) => (
+            {note.contentText.split('\n').map((line: string, index: number) => (
               <p key={index}>{line || '\u00a0'}</p>
             ))}
           </article>

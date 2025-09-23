@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { PatientRecord as ContractPatientRecord, PatientCreateUpdateInput } from '@contracts/patients';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,18 +33,7 @@ const patientFormSchema = z.object({
 
 export type PatientFormValues = z.infer<typeof patientFormSchema>;
 
-export type PatientRecord = {
-  id: string;
-  name: string;
-  document: string | null;
-  birthDate: string | null;
-  contact: Record<string, unknown> | null;
-  payer: string | null;
-  allergies: string[];
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+export type PatientRecord = ContractPatientRecord;
 
 type HighlightRanges = Record<string, [number, number][]>;
 
@@ -414,19 +404,23 @@ export default function Pacientes() {
   const onSubmit = async (values: PatientFormValues) => {
     try {
       setErrorMessage(null);
-      const contactCandidate = {
-        phone: values.contactPhone.trim() || undefined,
-        email: values.contactEmail.trim() || undefined,
-        notes: values.contactNotes.trim() || undefined,
-      };
-      const hasContactInfo = Boolean(contactCandidate.phone || contactCandidate.email || contactCandidate.notes);
+      const contact: Record<string, string> | null = (() => {
+        const entries: [string, string][] = [];
+        const phone = values.contactPhone.trim();
+        const email = values.contactEmail.trim();
+        const notes = values.contactNotes.trim();
+        if (phone) entries.push(['phone', phone]);
+        if (email) entries.push(['email', email]);
+        if (notes) entries.push(['notes', notes]);
+        return entries.length ? Object.fromEntries(entries) : null;
+      })();
 
-      const payload = {
+      const payload: PatientCreateUpdateInput = {
         name: values.name.trim(),
-        document: values.document.trim() || null,
-        birthDate: toISODate(values.birthDate.trim()),
-        ...(hasContactInfo ? { contact: contactCandidate } : {}),
-        payer: values.payer.trim() || null,
+        document: (values.document.trim() || null) as any,
+        birthDate: toISODate(values.birthDate.trim()) as any,
+        contact,
+        payer: (values.payer.trim() || null) as any,
         allergies: values.allergies,
         tags: values.tags,
       };

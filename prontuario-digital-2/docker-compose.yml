@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: prontuario-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: prontuario_digital
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d prontuario_digital"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: prontuario-api
+    environment:
+      NODE_ENV: production
+      PORT: "3030"
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/prontuario_digital"
+    ports:
+      - "3030:3030"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile
+    container_name: prontuario-web
+    environment:
+      NODE_ENV: production
+    ports:
+      - "5173:5173"
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  postgres_data:

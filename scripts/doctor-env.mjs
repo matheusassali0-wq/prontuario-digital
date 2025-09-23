@@ -27,6 +27,14 @@ function isExtFilesystem(p) {
 
 const cwd = process.cwd();
 
+// Allow bypass for local experiments
+if (process.env.DISABLE_ENV_GUARD === "1") {
+  if (process.env.NODE_ENV !== "test") {
+    console.warn("[ENV GUARD] Bypass enabled via DISABLE_ENV_GUARD=1");
+  }
+  process.exit(0);
+}
+
 if (process.platform === "linux" && isWSL()) {
   if (isWindowsMount(cwd)) {
     console.error(

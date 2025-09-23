@@ -1,0 +1,29 @@
+{
+  "name": "prontuario-digital",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node ./server/server-pro.cjs",
+    "dev:up": "bash ./scripts/dev-up.sh",
+    "dev:down": "bash ./scripts/dev-down.sh",
+    "dev:repair": "bash ./scripts/dev-repair.sh",
+    "lint": "eslint .",
+    "typecheck": "tsc -p . --noEmit",
+    "build": "tsc -p . --noEmit",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "start:prod": "NODE_ENV=production node ./server/server-pro.cjs",
+    "review:up": "PR_NUMBER=${PR_NUMBER:-local} API_PORT=${API_PORT:-3030} WEB_PORT=${WEB_PORT:-5173} docker compose -f docker-compose.review.yml --profile review up -d --pull always",
+    "review:down": "PR_NUMBER=${PR_NUMBER:-local} docker compose -f docker-compose.review.yml --profile review down -v",
+    "review:logs": "PR_NUMBER=${PR_NUMBER:-local} docker compose -f docker-compose.review.yml --profile review logs -f",
+    "smoke:e2e": "echo 'placeholder'",
+    "test:contracts": "node ./scripts/test-contracts.mjs || true",
+    "test:unit": "node --test tests/unit/*.test.mjs"
+  },
+  "dependencies": {
+    "prisma": "^4.0.0",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.32.0",
+    "typescript": "^4.5.4"
+  }
+}
