@@ -1,5 +1,6 @@
 import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
 
 const jsConfigs = [
   {
@@ -30,15 +31,20 @@ const jsConfigs = [
   },
 ];
 
-const tsRecommended = Array.isArray(tseslint.configs.recommendedTypeChecked)
-  ? tseslint.configs.recommendedTypeChecked
-  : [tseslint.configs.recommendedTypeChecked];
+const recommendedTypeChecked = Array.isArray(
+  tsPlugin.configs['flat/recommended-type-checked'],
+)
+  ? tsPlugin.configs['flat/recommended-type-checked']
+  : [tsPlugin.configs['flat/recommended-type-checked']];
 
-const tsConfigs = tsRecommended.map((config) => ({
+const tsFiles = ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts'];
+
+const tsConfigs = recommendedTypeChecked.map((config) => ({
   ...config,
-  files: ['webapp/src/pages/**/*.tsx', 'webapp/src/stores/**/*.ts'],
+  files: tsFiles,
   languageOptions: {
     ...(config.languageOptions ?? {}),
+    parser: tsParser,
     parserOptions: {
       ...(config.languageOptions?.parserOptions ?? {}),
       project: ['./webapp/tsconfig.json'],
