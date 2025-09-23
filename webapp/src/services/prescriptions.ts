@@ -76,9 +76,12 @@ export const printPrescription = async (input: {
 
 export const loadPrescription = async (
   id: string,
-): Promise<PrescriptionRecord | null> => {
+) => {
   const response = await fetchJson<{ item?: PrescriptionRecord }>(`/prescricoes/${id}`);
-  return response.item ?? null;
+  if (response.item) {
+    return response.item;
+  }
+  return null;
 };
 
-export type { PrescriptionItem, PrescriptionRecord, StatusPayload };
+export type { StatusPayload };

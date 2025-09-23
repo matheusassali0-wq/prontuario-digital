@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { PrescriptionItem, PrescriptionRecord } from '@contracts/prescriptions';
 import {
-  PrescriptionItem,
-  PrescriptionRecord,
   StatusPayload,
   listPrescriptions,
   loadAuthStatus,
@@ -23,7 +22,7 @@ const formatDateTime = (value: string) => {
   }).format(date);
 };
 
-const formatPrintItems = (items: (PrescriptionItem & { ordem: number })[]) =>
+const formatPrintItems = (items: PrescriptionRecord['itens']) =>
   items
     .map(
       (item) => `
@@ -37,7 +36,7 @@ const formatPrintItems = (items: (PrescriptionItem & { ordem: number })[]) =>
     )
     .join('');
 
-const formatPrintItemsA5 = (items: (PrescriptionItem & { ordem: number })[]) =>
+const formatPrintItemsA5 = (items: PrescriptionRecord['itens']) =>
   items
     .map((item) => {
       const via = item.via ? `<br /><small>${item.via}</small>` : '';
