@@ -84,4 +84,4 @@ export const loadPrescription = async (
   return null;
 };
 
-export type { StatusPayload };
+export type { StatusPayload, PrescriptionItem, PrescriptionRecord };
